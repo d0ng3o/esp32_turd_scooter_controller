@@ -24,8 +24,13 @@
 #define PIN_EXPANSION     GPIO_NUM_10   // D10 expansion header (unused in fw)
 
 // ---- ADC channels (ESP32-C3) ------------------------------------------------
-#define ADC_BRAKE_CHANNEL     ADC_CHANNEL_3   // GPIO3
-#define ADC_THROTTLE_CHANNEL  ADC_CHANNEL_4   // GPIO4
+#define ADC_BRAKE_CHANNEL     ADC_CHANNEL_3   // GPIO3  (ADC1)
+#define ADC_THROTTLE_CHANNEL  ADC_CHANNEL_4   // GPIO4  (ADC1)
+#define ADC_PACK_CHANNEL      ADC_CHANNEL_0   // GPIO5  (ADC2 - blocked while WiFi runs)
+
+// Pack voltage divider: R7 (top) / R8 (bottom). Vpack = Vnode * (top+bot)/bot.
+#define PACK_DIV_R_TOP        470000          // R7
+#define PACK_DIV_R_BOT        33000           // R8
 
 // ---- One-wire bus -----------------------------------------------------------
 #define BUS_UART_NUM      UART_NUM_1

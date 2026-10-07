@@ -16,8 +16,15 @@ typedef struct {
     bool    brake_active;   // brake past BRAKE_ACTIVE_PCT of travel
 } inputs_t;
 
-// Initialise the ADC oneshot unit and both channels.
+// Initialise the ADC oneshot units and channels (ADC1 throttle/brake, ADC2 pack).
 esp_err_t inputs_init(void);
 
 // Sample throttle + brake, filter, and map into *out.
 void inputs_sample(inputs_t *out);
+
+// Read the pack voltage (ADC2) and update the cached value - only when `allowed`
+// (ADC2 is unavailable while WiFi runs; pass false then to keep the cache).
+void inputs_sample_pack(bool allowed);
+
+// Last cached pack voltage in millivolts (0 if never read).
+uint32_t inputs_pack_mv(void);

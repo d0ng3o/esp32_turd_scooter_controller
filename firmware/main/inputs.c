@@ -10,6 +10,8 @@
 #include "config.h"
 
 #include "esp_adc/adc_oneshot.h"
+#include "esp_adc/adc_cali.h"
+#include "esp_adc/adc_cali_scheme.h"
 #include "esp_log.h"
 
 static const char *TAG = "inputs";
@@ -18,6 +20,10 @@ static const char *TAG = "inputs";
 #define EMA_SHIFT  2           // exponential smoothing: new = old + (x-old)>>SHIFT
 
 static adc_oneshot_unit_handle_t s_adc1;
+static adc_oneshot_unit_handle_t s_adc2;      // pack sense (GPIO5)
+static adc_cali_handle_t         s_pack_cali; // NULL -> fall back to rough scaling
+static bool     s_pack_ready;
+static uint32_t s_pack_mv;
 static int s_thr_ema = -1;     // -1 = uninitialised
 static int s_brk_ema = -1;
 
@@ -70,7 +76,47 @@ esp_err_t inputs_init(void)
 
     ESP_LOGI(TAG, "ADC1 up: throttle=CH%d(GPIO%d) brake=CH%d(GPIO%d)",
              ADC_THROTTLE_CHANNEL, PIN_THROTTLE_ADC, ADC_BRAKE_CHANNEL, PIN_BRAKE_ADC);
+
+    // ADC2 for pack sense (unavailable while WiFi runs; read is gated by caller).
+    const adc_oneshot_unit_init_cfg_t unit2_cfg = { .unit_id = ADC_UNIT_2 };
+    if (adc_oneshot_new_unit(&unit2_cfg, &s_adc2) == ESP_OK &&
+        adc_oneshot_config_channel(s_adc2, ADC_PACK_CHANNEL, &ch_cfg) == ESP_OK) {
+        s_pack_ready = true;
+        const adc_cali_curve_fitting_config_t cali = {
+            .unit_id  = ADC_UNIT_2,
+            .chan     = ADC_PACK_CHANNEL,
+            .atten    = ADC_ATTEN_DB_12,
+            .bitwidth = ADC_BITWIDTH_DEFAULT,
+        };
+        if (adc_cali_create_scheme_curve_fitting(&cali, &s_pack_cali) != ESP_OK) {
+            s_pack_cali = NULL;   // rough scaling fallback
+        }
+        ESP_LOGI(TAG, "ADC2 up: pack=CH%d(GPIO%d)%s", ADC_PACK_CHANNEL, PIN_PACK_ADC,
+                 s_pack_cali ? " (calibrated)" : "");
+    } else {
+        ESP_LOGW(TAG, "ADC2 (pack) init failed");
+    }
     return ESP_OK;
+}
+
+void inputs_sample_pack(bool allowed)
+{
+    if (!allowed || !s_pack_ready) return;
+    int raw = 0;
+    if (adc_oneshot_read(s_adc2, ADC_PACK_CHANNEL, &raw) != ESP_OK) return;
+
+    int node_mv = 0;
+    if (s_pack_cali) {
+        adc_cali_raw_to_voltage(s_pack_cali, raw, &node_mv);
+    } else {
+        node_mv = raw * 3100 / 4095;   // rough (12 dB full-scale ~3.1 V)
+    }
+    s_pack_mv = (uint32_t)node_mv * (PACK_DIV_R_TOP + PACK_DIV_R_BOT) / PACK_DIV_R_BOT;
+}
+
+uint32_t inputs_pack_mv(void)
+{
+    return s_pack_mv;
 }
 
 void inputs_sample(inputs_t *out)

@@ -58,6 +58,9 @@ static void ride_task(void *arg)
         netcfg_tick();           // auto-exit config mode on inactivity
         bool config_active = netcfg_is_active();
 
+        // Pack voltage ~1 Hz (ADC2 is unavailable while the WiFi portal runs).
+        if ((n % 50) == 0) inputs_sample_pack(!config_active);
+
         bool locked = security_update(g, active, imu_mot);
 
         // Throttle is inhibited while the config portal is open.

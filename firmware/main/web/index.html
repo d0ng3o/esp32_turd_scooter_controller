@@ -70,7 +70,8 @@ async function save(){try{const r=await fetch('/api/config',{method:'POST',body:
   document.getElementById('st').textContent=r.ok?'saved ✓':'save failed';}catch(e){document.getElementById('st').textContent='save error';}}
 async function poll(){try{const s=await(await fetch('/api/status')).json();
   document.getElementById('st').textContent='link '+(s.link?'up':'down')+' · '+(s.locked?'LOCKED':'unlocked')+
-   ' · speed '+s.speed+' · SoC '+s.soc+'% · '+(s.current_cA/100).toFixed(2)+' A';}catch(e){}
+   ' · speed '+s.speed+' · SoC '+s.soc+'% · '+(s.current_cA/100).toFixed(2)+' A · '+
+   (s.pack_mv/1000).toFixed(1)+' V';}catch(e){}
   setTimeout(poll,2000);}
 function ota(){const f=document.getElementById('fw').files[0];if(!f){document.getElementById('otamsg').textContent='pick a .bin first';return;}
   const pg=document.getElementById('pg');pg.hidden=false;const m=document.getElementById('otamsg');m.textContent='uploading…';
