@@ -321,6 +321,13 @@ Master sets poll flag **0x40** while the controller reports speed > 0, and
 clears it ~0.5 s after the wheel stops. The tail light is the always-on
 flag 0x08. Both are commands from master to slave.
 
+**The controller latches the last commanded light state when polling stops.** It
+does not auto-clear the lights when the poll stream ends — it holds whatever was
+last sent. So a master that is about to stop polling (e.g. firmware entering
+deep sleep) must first send a poll with the light flags **cleared** (no 0x08 /
+0x40) to turn the lights off; otherwise they stay lit on the dormant controller.
+On resuming polling, normal flags turn them back on.
+
 ### 6.5 Power / charger interlock
 
 - The controller drives the motor **only with battery power present.** With the

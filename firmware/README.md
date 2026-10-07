@@ -8,15 +8,22 @@ interlocks. Built with **ESP-IDF v5.2+**.
 > ⚠️ Safety-critical. Read [`../DISCLAIMER.md`](../DISCLAIMER.md). The default
 > state is always **throttle 0**; any lost bus link or engaged brake forces it.
 
-## Status — v1: core ride control
+## Status
 
 | Area | State |
 |---|---|
 | One-wire open-drain UART bus (colon protocol, echo-filtered, 50 Hz poll + status decode) | ✅ |
 | Throttle/brake ADC, filtering, mapping | ✅ (placeholder calibration) |
 | Ride state machine + interlocks (kick-to-start, brake→0, link-loss failsafe) | ✅ |
-| Buzzer feedback (LEDC) + WS2812 status LED | ✅ |
-| OLED (LVGL) · IMU deep-sleep wake · WiFi config + OTA · pack ADC · NVS calibration | ⬜ later phases |
+| Ride-feel shaping (throttle cap, curve, soft-start) | ✅ |
+| NVS config store (all tunables, web-UI-ready) | ✅ |
+| Configurable lights (headlight auto/on/off/manual, experimental brake strobe) | ✅ |
+| Gestures: unlock (brake+triple-blip) / config-mode (brake+full 20 s) | ✅ |
+| Lock/security: boots locked, auto-lock, motion alarm | ✅ |
+| IMU (LSM6DS3TR-C) wake-on-motion + idle keep-alive | ✅ |
+| Deep sleep to conserve the pack (two-stage idle; lights cleared before sleep) | ✅ |
+| WiFi config portal + web UI + OTA | ⬜ next (config-mode entry is stubbed) |
+| OLED (LVGL) · pack-voltage ADC · runtime NVS calibration routine | ⬜ later |
 
 ## Layout
 

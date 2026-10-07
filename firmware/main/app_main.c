@@ -15,6 +15,8 @@
 #include "control.h"
 #include "gesture.h"
 #include "security.h"
+#include "imu.h"
+#include "power.h"
 #include "buzzer.h"
 #include "status_led.h"
 
@@ -50,15 +52,19 @@ static void ride_task(void *arg)
         bus_get_telemetry(&telem);
         bool link = bus_link_ok();
 
-        // Stationary from the controller's speed for now; the IMU phase will
-        // refine this (and feed the motion alarm).
-        bool stationary = !(telem.valid && telem.speed > 0);
+        // Activity signals. "active" (any input, wheel motion, or IMU motion)
+        // keeps the scooter awake; "stationary" (wheel stopped) gates gestures.
+        bool imu_mot      = imu_motion();
+        bool wheel_moving = telem.valid && (telem.speed > 0);
+        bool lever        = (in.throttle_cmd > 0) || in.brake_active;
+        bool active       = lever || wheel_moving || imu_mot;
+        bool stationary   = !wheel_moving;
 
         gesture_event_t g = gesture_update(&in, stationary);
         if (g == GESTURE_CONFIG) {
             enter_config_mode();
         }
-        bool locked = security_update(g, &in, stationary, /*motion=*/false);
+        bool locked = security_update(g, active, imu_mot);
 
         control_out_t out = control_step(&in, &telem, link, locked);
 
@@ -76,6 +82,10 @@ static void ride_task(void *arg)
             ESP_LOGW(TAG, "bus link lost -> throttle inhibited");
         }
         last_state = out.state;
+
+        // Stage-2 idle: deep sleep after the long idle timeout (does not return
+        // if it sleeps; the IMU wakes it and the chip reboots locked).
+        power_update(active);
     }
 }
 
@@ -91,6 +101,8 @@ void app_main(void)
     control_init();
     gesture_init();
     security_init();
+    imu_init();          // non-fatal if absent; wake-on-motion + alarm degrade off
+    power_init();
 
     status_led_state(RIDE_LOCKED);  // boots locked
     buzzer_boot();

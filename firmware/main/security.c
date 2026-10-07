@@ -41,13 +41,12 @@ static void set_locked(bool v)
     ESP_LOGI(TAG, "%s", v ? "LOCKED" : "UNLOCKED");
 }
 
-bool security_update(gesture_event_t g, const inputs_t *in,
-                     bool stationary, bool motion)
+bool security_update(gesture_event_t g, bool active, bool motion)
 {
     int64_t now = esp_timer_get_time();
 
-    if (in->throttle_cmd > 0 || in->brake_active) {
-        s_last_activity_us = now;
+    if (active) {
+        s_last_activity_us = now;      // levers, wheel, or IMU motion keep it awake
     }
 
     if (g == GESTURE_UNLOCK_TOGGLE) {
@@ -55,8 +54,10 @@ bool security_update(gesture_event_t g, const inputs_t *in,
         s_last_activity_us = now;
     }
 
-    // Auto-lock after inactivity while stopped.
-    if (!s_locked && g_cfg.auto_lock_timeout_s > 0 && stationary &&
+    // Auto-lock after inactivity. `active` already includes IMU motion, so a
+    // rider waiting at a light keeps it unlocked; only a still, set-down scooter
+    // times out.
+    if (!s_locked && g_cfg.auto_lock_timeout_s > 0 &&
         (now - s_last_activity_us) > (int64_t)g_cfg.auto_lock_timeout_s * 1000000) {
         set_locked(true);
     }

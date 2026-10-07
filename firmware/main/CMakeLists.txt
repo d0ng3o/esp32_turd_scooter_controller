@@ -10,7 +10,17 @@ idf_component_register(
         "control.c"
         "gesture.c"
         "security.c"
+        "imu.c"
+        "power.c"
         "buzzer.c"
         "status_led.c"
     INCLUDE_DIRS "."
+    REQUIRES
+        driver              # gpio, uart, ledc
+        esp_driver_i2c      # i2c_master (IMU)
+        esp_adc             # adc_oneshot (throttle/brake)
+        nvs_flash           # config store
+        esp_timer           # timestamps
+        esp_hw_support      # esp_sleep (deep sleep)
+    # espressif/led_strip is pulled in automatically via idf_component.yml
 )
