@@ -34,9 +34,9 @@ void control_init(void);
 // Toggle the headlight in HEADLIGHT_MANUAL mode (wired to a gesture).
 void control_toggle_headlight(void);
 
-// Compute throttle + light flags for this poll. Enforces, in order:
-// link-loss failsafe, lock inhibit, brake->0, and the kick-to-start interlock,
-// then applies curve/cap/soft-start shaping (all from g_cfg). Lights follow the
-// configured headlight/brakelight modes.
+// Compute throttle + light flags for this poll. Enforces, in order: link-loss
+// failsafe, lock inhibit, brake->0; otherwise passes the rider's throttle through
+// (the controller enforces kick-to-start) with curve/cap/soft-start shaping from
+// g_cfg. Lights follow the configured headlight/brakelight modes.
 control_out_t control_step(const inputs_t *in, const telemetry_t *t,
                            bool link_ok, bool locked);

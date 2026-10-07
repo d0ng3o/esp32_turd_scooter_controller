@@ -16,7 +16,8 @@ interlocks. Built with **ESP-IDF v5.2+**.
 |---|---|
 | One-wire open-drain UART bus (colon protocol, echo-filtered, 50 Hz poll + status decode) | ✅ |
 | Throttle/brake ADC, filtering, mapping | ✅ (placeholder calibration) |
-| Ride state machine + interlocks (kick-to-start, brake→0, link-loss failsafe) | ✅ |
+| Ride state machine + failsafes (brake→0, link-loss, lock) | ✅ |
+| Kick-to-start | enforced by the motor controller (PROTOCOL.md §6.2) — not duplicated in firmware |
 | Ride-feel shaping (throttle cap, curve, soft-start) | ✅ |
 | NVS config store (all tunables, web-UI-ready) | ✅ |
 | Configurable lights (headlight auto/on/off/manual, experimental brake strobe) | ✅ |

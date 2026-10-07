@@ -35,7 +35,6 @@ void config_set_defaults(config_t *c)
     c->throttle_cap   = THROTTLE_CMD_MAX;
     c->soft_start_ms  = 400;            // gentle ramp to avoid jerky starts
     c->throttle_curve = THROTTLE_LINEAR;
-    c->kick_to_start  = true;
 
     // lock / security
     c->auto_lock_timeout_s = 120;
@@ -117,7 +116,6 @@ char *config_to_json(void)
     cJSON_AddNumberToObject(r, "throttle_cap", g_cfg.throttle_cap);
     cJSON_AddNumberToObject(r, "soft_start_ms", g_cfg.soft_start_ms);
     cJSON_AddNumberToObject(r, "throttle_curve", g_cfg.throttle_curve);
-    cJSON_AddBoolToObject(r, "kick_to_start", g_cfg.kick_to_start);
     cJSON_AddNumberToObject(r, "auto_lock_timeout_s", g_cfg.auto_lock_timeout_s);
     cJSON_AddBoolToObject(r, "motion_alarm", g_cfg.motion_alarm);
     cJSON_AddNumberToObject(r, "auto_sleep_timeout_s", g_cfg.auto_sleep_timeout_s);
@@ -168,7 +166,6 @@ bool config_from_json(const char *json, int len)
     GN("throttle_cap", throttle_cap, 0, 255);
     GN("soft_start_ms", soft_start_ms, 0, 5000);
     GN("throttle_curve", throttle_curve, 0, 1);
-    GB("kick_to_start", kick_to_start);
     GN("auto_lock_timeout_s", auto_lock_timeout_s, 0, 3600);
     GB("motion_alarm", motion_alarm);
     GN("auto_sleep_timeout_s", auto_sleep_timeout_s, 0, 7200);

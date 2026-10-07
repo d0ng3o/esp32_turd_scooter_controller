@@ -14,7 +14,7 @@
 #include "esp_err.h"
 
 #define CONFIG_MAGIC    0x54555244u   // 'TURD'
-#define CONFIG_VERSION  1
+#define CONFIG_VERSION  2
 
 typedef enum {
     HEADLIGHT_AUTO = 0,   // on while moving (original behaviour)
@@ -47,7 +47,7 @@ typedef struct {
     uint8_t  throttle_cap;          // max byte sent to controller (0..255)
     uint16_t soft_start_ms;         // ramp time 0 -> cap (0 = instant)
     uint8_t  throttle_curve;        // throttle_curve_t
-    bool     kick_to_start;         // require wheel motion before throttle
+    // (kick-to-start is enforced by the motor controller, not the firmware)
 
     // --- lock / security ---
     uint16_t auto_lock_timeout_s;   // inactivity before auto-lock (0 = never)

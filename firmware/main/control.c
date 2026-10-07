@@ -1,12 +1,14 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 // Copyright 2026 Taavi Laadung
 //
-// control.c - ride state machine with the safety interlocks from PROTOCOL.md 6,
-// plus ride-feel shaping (throttle cap, curve, soft-start) and light-flag logic.
+// control.c - ride state machine, ride-feel shaping (throttle cap, curve,
+// soft-start) and light-flag logic.
 //
-// Throttle is a SPEED setpoint; the controller only engages after the wheel is
-// kicked and the throttle rises from idle. This firmware mirrors that and adds
-// hard failsafes: lost link, lock, or brake all force the throttle byte to 0.
+// Throttle is a SPEED setpoint. Kick-to-start (the motor engages only once the
+// wheel is rolling and the throttle rises from idle) is enforced by the MOTOR
+// CONTROLLER itself (PROTOCOL.md 6.2) and cannot be changed, so the firmware
+// just passes the rider's throttle through - no duplicate gate here. The hard
+// failsafes remain: lost link, lock, or brake all force the throttle byte to 0.
 
 #include "control.h"
 #include "board.h"
@@ -15,14 +17,12 @@
 #include "esp_timer.h"
 
 // Persistent state across poll cycles.
-static bool    s_armed;              // released throttle after motion -> may apply
 static uint8_t s_out_slew;           // last emitted throttle (for soft-start ramp)
 static bool    s_headlight_manual;   // toggle state for HEADLIGHT_MANUAL
 static int64_t s_moving_until_us;    // headlight auto-off delay bookkeeping
 
 void control_init(void)
 {
-    s_armed = false;
     s_out_slew = 0;
     s_headlight_manual = false;
     s_moving_until_us = 0;
@@ -103,7 +103,6 @@ control_out_t control_step(const inputs_t *in, const telemetry_t *t,
 
     // 1. Failsafe: no controller link -> no motion.
     if (!link_ok) {
-        s_armed = false;
         s_out_slew = 0;
         out.state = RIDE_FAULT;
         return out;
@@ -111,7 +110,6 @@ control_out_t control_step(const inputs_t *in, const telemetry_t *t,
 
     // 2. Locked: throttle inhibited until unlocked.
     if (locked) {
-        s_armed = false;
         s_out_slew = 0;
         out.state = RIDE_LOCKED;
         return out;
@@ -121,32 +119,11 @@ control_out_t control_step(const inputs_t *in, const telemetry_t *t,
     if (braking) {
         s_out_slew = 0;
         out.state = RIDE_BRAKING;
-        return out;                          // keep s_armed; resume on release if moving
-    }
-
-    // 4. Stopped: no throttle; require a fresh kick before arming again.
-    if (g_cfg.kick_to_start && !moving) {
-        s_armed = false;
-        s_out_slew = 0;
-        out.state = RIDE_IDLE;
         return out;
     }
 
-    // 5. Moving (or kick-to-start disabled): arm on release, then pass through.
-    uint8_t target = 0;
-    if (!g_cfg.kick_to_start) {
-        target = in->throttle_cmd;
-        out.state = in->throttle_cmd ? RIDE_RIDING : RIDE_READY;
-    } else if (in->throttle_cmd == 0) {
-        s_armed = true;
-        out.state = RIDE_READY;
-    } else if (s_armed) {
-        target = in->throttle_cmd;
-        out.state = RIDE_RIDING;
-    } else {
-        out.state = RIDE_READY;              // held through the stop: wait for release
-    }
-
-    out.throttle = slew_to(shape_target(target));
+    // 4. Pass the rider's throttle through (the controller enforces kick-to-start).
+    out.throttle = slew_to(shape_target(in->throttle_cmd));
+    out.state = out.throttle ? RIDE_RIDING : RIDE_IDLE;
     return out;
 }
