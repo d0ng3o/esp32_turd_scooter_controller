@@ -102,6 +102,54 @@ static esp_err_t h_status(httpd_req_t *req)
     return ESP_OK;
 }
 
+static esp_err_t h_cal_get(httpd_req_t *req)
+{
+    touch();
+    int tmin, tmax, bmin, bmax;
+    inputs_cal_values(&tmin, &tmax, &bmin, &bmax);
+    char buf[200];
+    snprintf(buf, sizeof(buf),
+             "{\"active\":%d,\"thr\":%d,\"brk\":%d,"
+             "\"thr_min\":%d,\"thr_max\":%d,\"brk_min\":%d,\"brk_max\":%d}",
+             inputs_cal_active() ? 1 : 0, inputs_thr_raw(), inputs_brk_raw(),
+             tmin, tmax, bmin, bmax);
+    httpd_resp_set_type(req, "application/json");
+    httpd_resp_sendstr(req, buf);
+    return ESP_OK;
+}
+
+static esp_err_t h_cal_post(httpd_req_t *req)
+{
+    touch();
+    char body[64] = { 0 };
+    int len = req->content_len;
+    if (len > (int)sizeof(body) - 1) len = sizeof(body) - 1;
+    int got = 0;
+    while (got < len) {
+        int k = httpd_req_recv(req, body + got, len - got);
+        if (k <= 0) break;
+        got += k;
+    }
+    body[got] = 0;
+
+    if (strstr(body, "start")) {
+        inputs_cal_start();
+    } else if (strstr(body, "apply")) {
+        int tmin, tmax, bmin, bmax;
+        inputs_cal_values(&tmin, &tmax, &bmin, &bmax);
+        if (tmax > tmin + 100 && bmax > bmin + 100) {    // sanity: real travel captured
+            g_cfg.thr_raw_min = tmin; g_cfg.thr_raw_max = tmax;
+            g_cfg.brk_raw_min = bmin; g_cfg.brk_raw_max = bmax;
+            config_save();
+        }
+        inputs_cal_stop();
+    } else if (strstr(body, "cancel")) {
+        inputs_cal_stop();
+    }
+    httpd_resp_sendstr(req, "{\"ok\":true}");
+    return ESP_OK;
+}
+
 static esp_err_t h_ota(httpd_req_t *req)
 {
     touch();
@@ -193,6 +241,8 @@ static void register_handlers(void)
         { .uri = "/api/config",  .method = HTTP_GET,  .handler = h_cfg_get },
         { .uri = "/api/config",  .method = HTTP_POST, .handler = h_cfg_post },
         { .uri = "/api/status",  .method = HTTP_GET,  .handler = h_status },
+        { .uri = "/api/cal",     .method = HTTP_GET,  .handler = h_cal_get },
+        { .uri = "/api/cal",     .method = HTTP_POST, .handler = h_cal_post },
         { .uri = "/api/ota",     .method = HTTP_POST, .handler = h_ota },
         { .uri = "/api/reboot",  .method = HTTP_POST, .handler = h_reboot },
     };
@@ -211,7 +261,7 @@ void netcfg_start(void)
 
     httpd_config_t hc = HTTPD_DEFAULT_CONFIG();
     hc.lru_purge_enable = true;
-    hc.max_uri_handlers = 8;
+    hc.max_uri_handlers = 10;
     hc.stack_size = 8192;
     if (httpd_start(&s_server, &hc) == ESP_OK) {
         register_handlers();

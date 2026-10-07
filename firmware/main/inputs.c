@@ -26,6 +26,11 @@ static bool     s_pack_ready;
 static uint32_t s_pack_mv;
 static int s_thr_ema = -1;     // -1 = uninitialised
 static int s_brk_ema = -1;
+static int s_last_thr_raw, s_last_brk_raw;
+
+// Guided calibration capture.
+static bool s_cal_active;
+static int  s_cal_tmin = 4095, s_cal_tmax, s_cal_bmin = 4095, s_cal_bmax;
 
 static int read_avg(adc_channel_t ch)
 {
@@ -119,6 +124,25 @@ uint32_t inputs_pack_mv(void)
     return s_pack_mv;
 }
 
+int inputs_thr_raw(void) { return s_last_thr_raw; }
+int inputs_brk_raw(void) { return s_last_brk_raw; }
+
+void inputs_cal_start(void)
+{
+    s_cal_tmin = 4095; s_cal_tmax = 0;
+    s_cal_bmin = 4095; s_cal_bmax = 0;
+    s_cal_active = true;
+}
+
+void inputs_cal_stop(void) { s_cal_active = false; }
+bool inputs_cal_active(void) { return s_cal_active; }
+
+void inputs_cal_values(int *tmin, int *tmax, int *bmin, int *bmax)
+{
+    *tmin = s_cal_tmin; *tmax = s_cal_tmax;
+    *bmin = s_cal_bmin; *bmax = s_cal_bmax;
+}
+
 void inputs_sample(inputs_t *out)
 {
     int thr = ema(&s_thr_ema, read_avg(ADC_THROTTLE_CHANNEL));
@@ -126,6 +150,16 @@ void inputs_sample(inputs_t *out)
 
     out->throttle_raw  = thr;
     out->brake_raw     = brk;
+    s_last_thr_raw = thr;
+    s_last_brk_raw = brk;
+
+    if (s_cal_active) {
+        if (thr < s_cal_tmin) s_cal_tmin = thr;
+        if (thr > s_cal_tmax) s_cal_tmax = thr;
+        if (brk < s_cal_bmin) s_cal_bmin = brk;
+        if (brk > s_cal_bmax) s_cal_bmax = brk;
+    }
+
     // Full-scale 0..255 from the calibrated travel; ride-feel shaping (cap,
     // curve, soft-start) happens in control.c.
     out->throttle_cmd  = map_cmd(thr, g_cfg.thr_raw_min, g_cfg.thr_raw_max,

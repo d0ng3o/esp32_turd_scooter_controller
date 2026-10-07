@@ -25,6 +25,12 @@
  <div class="status" id="st">loading…</div>
  <form id="cfg"></form>
  <button type="button" onclick="save()">Save settings</button>
+ <fieldset><legend>Throttle / brake calibration</legend>
+  <div class="status" id="calmsg">Press Start, then sweep the throttle and squeeze the brake fully.</div>
+  <button type="button" onclick="calStart()">Start</button>
+  <button type="button" onclick="calApply()">Apply &amp; save</button>
+  <button type="button" class="sec" onclick="calCancel()">Cancel</button>
+ </fieldset>
  <fieldset><legend>Firmware update (OTA)</legend>
   <input type="file" id="fw" accept=".bin">
   <button type="button" onclick="ota()">Upload &amp; flash</button>
@@ -81,6 +87,20 @@ function ota(){const f=document.getElementById('fw').files[0];if(!f){document.ge
   x.onerror=()=>m.textContent='upload error';x.send(f);}
 async function reboot(){try{await fetch('/api/reboot',{method:'POST'});}catch(e){}
   document.getElementById('st').textContent='rebooting…';}
+let calTimer=null;
+async function calStart(){await fetch('/api/cal',{method:'POST',body:'{"action":"start"}'});
+  if(!calTimer)calTimer=setInterval(calPoll,400);}
+async function calPoll(){try{const c=await(await fetch('/api/cal')).json();
+  document.getElementById('calmsg').textContent=c.active?
+   ('capturing… throttle '+c.thr+' ['+c.thr_min+'…'+c.thr_max+']  brake '+c.brk+' ['+c.brk_min+'…'+c.brk_max+']'):'idle';
+  if(!c.active&&calTimer){clearInterval(calTimer);calTimer=null;}}catch(e){}}
+async function calApply(){await fetch('/api/cal',{method:'POST',body:'{"action":"apply"}'});
+  if(calTimer){clearInterval(calTimer);calTimer=null;}
+  try{const c=await(await fetch('/api/config')).json();fill(c);}catch(e){}
+  document.getElementById('calmsg').textContent='applied ✓ (saved)';}
+async function calCancel(){await fetch('/api/cal',{method:'POST',body:'{"action":"cancel"}'});
+  if(calTimer){clearInterval(calTimer);calTimer=null;}
+  document.getElementById('calmsg').textContent='cancelled';}
 load();
 </script>
 </body>

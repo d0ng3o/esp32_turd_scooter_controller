@@ -28,3 +28,15 @@ void inputs_sample_pack(bool allowed);
 
 // Last cached pack voltage in millivolts (0 if never read).
 uint32_t inputs_pack_mv(void);
+
+// Live filtered raw readings (for the web calibration helper).
+int inputs_thr_raw(void);
+int inputs_brk_raw(void);
+
+// Guided calibration: while active, inputs_sample() tracks the min/max raw of
+// throttle and brake as the rider sweeps them. The web UI applies the captured
+// values to the config.
+void inputs_cal_start(void);
+void inputs_cal_stop(void);
+bool inputs_cal_active(void);
+void inputs_cal_values(int *tmin, int *tmax, int *bmin, int *bmax);
