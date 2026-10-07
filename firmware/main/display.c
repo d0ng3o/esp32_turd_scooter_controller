@@ -31,6 +31,13 @@ esp_err_t display_init(void)
 {
     if (i2cbus_init() != ESP_OK) return ESP_FAIL;
 
+    // Only bring up the panel + LVGL if the OLED actually ACKs. Otherwise the
+    // LVGL flush task would spin on failing I2C writes and starve the system.
+    if (i2c_master_probe(i2cbus_handle(), OLED_ADDR, 50) != ESP_OK) {
+        ESP_LOGW(TAG, "no OLED at 0x%02X - display disabled", OLED_ADDR);
+        return ESP_OK;
+    }
+
     esp_lcd_panel_io_handle_t io = NULL;
     const esp_lcd_panel_io_i2c_config_t io_cfg = {
         .dev_addr = OLED_ADDR,
