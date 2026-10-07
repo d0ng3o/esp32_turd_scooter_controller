@@ -14,8 +14,10 @@ esp_err_t bus_init(void);
 
 // Send one poll and then pump the RX line for ~POLL_PERIOD_MS, filtering our own
 // echo and decoding any status frame. This call provides the 50 Hz pacing, so
-// the ride loop calls it once per cycle. want_status sets the status-request flag.
-void bus_poll_once(uint8_t throttle, bool headlight, bool want_status);
+// the ride loop calls it once per cycle. want_status sets the status-request
+// flag; tail_on/headlight set the light flags (tail is normally true, but is
+// strobed by the caller for the experimental brake light).
+void bus_poll_once(uint8_t throttle, bool headlight, bool tail_on, bool want_status);
 
 // Copy the latest decoded telemetry into *out. Returns true if a status frame
 // has ever been decoded (out->valid), false otherwise.

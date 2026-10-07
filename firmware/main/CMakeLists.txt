@@ -3,6 +3,7 @@
 idf_component_register(
     SRCS
         "app_main.c"
+        "config.c"
         "protocol.c"
         "bus.c"
         "inputs.c"

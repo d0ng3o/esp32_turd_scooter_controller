@@ -9,6 +9,7 @@
 // and decodes the status reply). Buzzer and status LED react to the ride state.
 
 #include "board.h"
+#include "config.h"
 #include "bus.h"
 #include "inputs.h"
 #include "control.h"
@@ -37,13 +38,15 @@ static void ride_task(void *arg)
         bus_get_telemetry(&telem);
         bool link = bus_link_ok();
 
-        control_out_t out = control_step(&in, &telem, link);
+        // TODO(lock phase): replace `false` with the security module's lock state
+        // (gestures + auto-lock). Unlocked for now so the ride path is testable.
+        control_out_t out = control_step(&in, &telem, link, false);
 
         // Status requested on every 5th poll: N N N N S (PROTOCOL.md 5.2).
         bool want_status = (n % STATUS_EVERY_N) == 0;
 
         // Sends the poll AND paces this loop to ~POLL_PERIOD_MS while it pumps RX.
-        bus_poll_once(out.throttle, out.headlight, want_status);
+        bus_poll_once(out.throttle, out.headlight, out.tail_on, want_status);
 
         status_led_state(out.state);
 
@@ -60,6 +63,7 @@ void app_main(void)
 {
     ESP_LOGI(TAG, "XIAO ESP32-C3 scooter controller fw v1 (core ride control)");
 
+    config_init();   // load settings first; inputs/control read g_cfg live
     ESP_ERROR_CHECK(buzzer_init());
     ESP_ERROR_CHECK(status_led_init());
     ESP_ERROR_CHECK(inputs_init());

@@ -7,6 +7,7 @@
 
 #include "inputs.h"
 #include "board.h"
+#include "config.h"
 
 #include "esp_adc/adc_oneshot.h"
 #include "esp_log.h"
@@ -79,10 +80,13 @@ void inputs_sample(inputs_t *out)
 
     out->throttle_raw  = thr;
     out->brake_raw     = brk;
-    out->throttle_cmd  = map_cmd(thr, THROTTLE_RAW_MIN, THROTTLE_RAW_MAX, THROTTLE_DEADZONE_PCT);
+    // Full-scale 0..255 from the calibrated travel; ride-feel shaping (cap,
+    // curve, soft-start) happens in control.c.
+    out->throttle_cmd  = map_cmd(thr, g_cfg.thr_raw_min, g_cfg.thr_raw_max,
+                                 g_cfg.thr_deadzone_pct);
 
-    int brk_pct = (BRAKE_RAW_MAX > BRAKE_RAW_MIN)
-                  ? (brk - BRAKE_RAW_MIN) * 100 / (BRAKE_RAW_MAX - BRAKE_RAW_MIN)
+    int brk_pct = (g_cfg.brk_raw_max > g_cfg.brk_raw_min)
+                  ? (brk - g_cfg.brk_raw_min) * 100 / (g_cfg.brk_raw_max - g_cfg.brk_raw_min)
                   : 0;
-    out->brake_active = brk_pct >= BRAKE_ACTIVE_PCT;
+    out->brake_active = brk_pct >= g_cfg.brk_active_pct;
 }

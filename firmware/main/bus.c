@@ -145,9 +145,10 @@ esp_err_t bus_init(void)
     return ESP_OK;
 }
 
-void bus_poll_once(uint8_t throttle, bool headlight, bool want_status)
+void bus_poll_once(uint8_t throttle, bool headlight, bool tail_on, bool want_status)
 {
-    uint8_t flags = FLAG_TAILLIGHT;
+    uint8_t flags = 0;
+    if (tail_on)     flags |= FLAG_TAILLIGHT;
     if (want_status) flags |= FLAG_STATUSREQ;
     if (headlight)   flags |= FLAG_HEADLIGHT;
 
