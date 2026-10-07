@@ -1,0 +1,21 @@
+# Target
+CONFIG_IDF_TARGET="esp32c3"
+
+# Console on the XIAO's native USB-Serial-JTAG. This frees UART1 (GPIO20/21,
+# the D6/D7 bus pins) entirely for the one-wire motor-controller bus, and keeps
+# logging/flashing over the USB-C connector.
+CONFIG_ESP_CONSOLE_USB_SERIAL_JTAG=y
+# (leave the legacy UART console off)
+
+# 4 MB flash with a dual-OTA partition table (OTA is a later phase, but the
+# layout is in place now so enabling it later needs no re-partition/erase).
+CONFIG_ESPTOOLPY_FLASHSIZE_4MB=y
+CONFIG_ESPTOOLPY_FLASHSIZE="4MB"
+CONFIG_PARTITION_TABLE_CUSTOM=y
+CONFIG_PARTITION_TABLE_CUSTOM_FILENAME="partitions.csv"
+
+# 1 kHz tick: clean 20 ms (50 Hz) poll cadence for the bus loop.
+CONFIG_FREERTOS_HZ=1000
+
+# Compiler
+CONFIG_COMPILER_OPTIMIZATION_SIZE=y

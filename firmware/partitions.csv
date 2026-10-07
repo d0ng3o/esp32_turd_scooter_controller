@@ -1,0 +1,9 @@
+# ESP32-C3 (XIAO, 4 MB flash) — dual-OTA layout.
+# Two app slots so OTA (a later phase) works without re-partitioning. v1 simply
+# boots ota_0 (first slot) — no factory app needed.
+# Name,     Type, SubType,  Offset,    Size
+nvs,        data, nvs,      0x9000,    0x6000,
+otadata,    data, ota,      0xf000,    0x2000,
+phy_init,   data, phy,      0x11000,   0x1000,
+ota_0,      app,  ota_0,    0x20000,   0x1E0000,
+ota_1,      app,  ota_1,    0x200000,  0x1E0000,
