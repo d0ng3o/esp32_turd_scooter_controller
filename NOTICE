@@ -1,0 +1,17 @@
+Scooter Control Board
+Copyright 2026 Taavi Laadung
+
+This project is free/libre and multi-licensed by component. Each part uses a
+strong-copyleft (share-alike) license, so any copy or derivative must be released
+under the same terms:
+
+  - Code (Python, shell, systemd unit):  GPL-3.0-or-later  (LICENSE)
+  - Hardware design (kicad/, original):  CERN-OHL-S-2.0    (LICENSE-HARDWARE.txt)
+  - Documentation (*.md, BOMs, HTML):    CC-BY-SA-4.0      (LICENSE-DOCS.txt)
+
+Third-party symbols, footprints, and 3D models under kicad/lcsc/ are
+vendor-sourced (LCSC / EasyEDA / component manufacturers) and are NOT covered by
+the licenses above. See kicad/lcsc/README.md.
+
+This is an independent project and is not affiliated with or endorsed by Bird,
+Lishui, Seeed Studio, or any other referenced company. See DISCLAIMER.md.

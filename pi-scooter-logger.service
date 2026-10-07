@@ -1,0 +1,15 @@
+# SPDX-License-Identifier: GPL-3.0-or-later
+# Copyright 2026 Taavi Laadung
+[Unit]
+Description=Scooter one-wire bus ride logger
+After=multi-user.target
+
+[Service]
+Type=simple
+ExecStart=/usr/bin/python3 /boot/firmware/pi_sniff.py --port /dev/serial0 --out /boot/firmware/rides --quiet
+Restart=always
+RestartSec=2
+User=root
+
+[Install]
+WantedBy=multi-user.target

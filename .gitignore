@@ -1,0 +1,42 @@
+# ---- Python ----
+__pycache__/
+*.py[cod]
+*.egg-info/
+.venv/
+venv/
+env/
+
+# ---- KiCad ----
+# Per-user editor state (window layout, last zoom, local selections)
+*.kicad_prl
+# Auto-backups and rescue
+*-backups/
+*.kicad_pcb-bak
+*.kicad_sch-bak
+_autosave-*
+*.000
+fp-info-cache
+# Generated netlists / exports (regenerate from the project)
+*.net
+*.xml
+# Fabrication output (regenerate when ordering)
+production/
+gerbers/
+*.zip
+
+# ---- KiCad lock files ----
+~*.lck
+*.lck
+
+# ---- Editor / tooling local history ----
+.history/
+_restore_backup_*/
+
+# ---- OS cruft ----
+.DS_Store
+Thumbs.db
+desktop.ini
+
+# ---- Transient run logs ----
+logs/
+*.log

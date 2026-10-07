@@ -1,0 +1,437 @@
+<title>XIAO Scooter Control Board</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600&family=IBM+Plex+Sans:wght@400;500;600;700&display=swap">
+<style>
+  :root{
+    --bg:#e8ecf1; --surface:#f6f8fb; --surface-2:#eef2f7; --ink:#182430; --muted:#5c6b7b; --hair:#ccd6df;
+    --accent:#b0651f;   /* copper - the one-wire data bus */
+    --pwr:#c14a3b;      /* +5V rail */
+    --pack:#8a2f27;     /* 41 V pack */
+    --v33:#c1811f;      /* +3V3 rail */
+    --sig:#2b8a62;      /* analog throttle / brake */
+    --i2c:#5457c2;      /* I2C to OLED */
+    --shadow:0 1px 2px rgba(16,26,38,.06), 0 6px 20px rgba(16,26,38,.06);
+  }
+  :root:not([data-theme="light"]){
+    @media (prefers-color-scheme: dark){
+      --bg:#0d131a; --surface:#151d27; --surface-2:#1b2632; --ink:#d7dfe8; --muted:#8798a8; --hair:#2a3644;
+      --accent:#d98a41; --pwr:#e0685a; --pack:#cd5a4d; --v33:#e0a04e; --sig:#49b688; --i2c:#8688e2;
+      --shadow:0 1px 2px rgba(0,0,0,.4), 0 8px 24px rgba(0,0,0,.35);
+    }
+  }
+  :root[data-theme="dark"]{
+    --bg:#0d131a; --surface:#151d27; --surface-2:#1b2632; --ink:#d7dfe8; --muted:#8798a8; --hair:#2a3644;
+    --accent:#d98a41; --pwr:#e0685a; --pack:#cd5a4d; --v33:#e0a04e; --sig:#49b688; --i2c:#8688e2;
+    --shadow:0 1px 2px rgba(0,0,0,.4), 0 8px 24px rgba(0,0,0,.35);
+  }
+
+  *{box-sizing:border-box}
+  body{
+    background:var(--bg); color:var(--ink);
+    font-family:"IBM Plex Sans",system-ui,sans-serif;
+    line-height:1.55; margin:0;
+  }
+  .sheet{max-width:1060px; margin:0 auto; padding:28px 20px 72px; padding-block:28px 72px;}
+
+  /* ---- title block ---- */
+  .titleblock{
+    border:1.5px solid var(--ink); border-radius:6px; overflow:hidden;
+    display:grid; grid-template-columns:1fr auto; background:var(--surface); box-shadow:var(--shadow);
+  }
+  .titleblock .main{padding:20px 22px; border-right:1.5px solid var(--hair)}
+  .eyebrow{
+    font-family:"IBM Plex Mono",monospace; font-size:11.5px; letter-spacing:.16em; text-transform:uppercase;
+    color:var(--accent); margin:0 0 6px;
+  }
+  h1{font-size:clamp(24px,4.4vw,34px); font-weight:700; letter-spacing:-.015em; margin:0 0 6px; text-wrap:balance;}
+  .sub{color:var(--muted); margin:0; max-width:60ch; font-size:15px}
+  .meta{display:grid; grid-template-columns:auto auto; font-family:"IBM Plex Mono",monospace; font-size:11.5px}
+  .meta div{padding:9px 14px; border-bottom:1px solid var(--hair)}
+  .meta div:nth-child(odd){color:var(--muted); border-right:1px solid var(--hair)}
+  .meta div:nth-last-child(-n+2){border-bottom:none}
+
+  section{margin-top:30px}
+  h2{font-size:13px; font-family:"IBM Plex Mono",monospace; letter-spacing:.13em; text-transform:uppercase;
+     color:var(--muted); margin:0 0 14px; display:flex; align-items:center; gap:12px}
+  h2::after{content:""; flex:1; height:1px; background:var(--hair)}
+
+  .card{background:var(--surface); border:1px solid var(--hair); border-radius:10px; box-shadow:var(--shadow)}
+  figure{margin:0}
+  .figpad{padding:18px 16px 8px}
+  figcaption{padding:2px 18px 16px; color:var(--muted); font-size:13px}
+  svg{display:block; max-width:100%; height:auto; margin:0 auto}
+
+  .two{display:grid; grid-template-columns:1fr 1fr; gap:20px}
+  @media(max-width:720px){.two{grid-template-columns:1fr}}
+
+  /* ---- legend ---- */
+  .legend{display:flex; flex-wrap:wrap; gap:6px 20px; font-family:"IBM Plex Mono",monospace; font-size:12px;
+    padding:14px 18px; border-top:1px solid var(--hair)}
+  .legend span{display:inline-flex; align-items:center; gap:8px; color:var(--muted)}
+  .legend i{width:20px; height:3px; border-radius:2px; display:inline-block}
+
+  /* ---- tables ---- */
+  .tablewrap{overflow-x:auto; border:1px solid var(--hair); border-radius:10px; background:var(--surface); box-shadow:var(--shadow)}
+  table{border-collapse:collapse; width:100%; font-size:13.5px; min-width:520px}
+  th,td{text-align:left; padding:10px 14px; border-bottom:1px solid var(--hair)}
+  thead th{font-family:"IBM Plex Mono",monospace; font-size:11px; letter-spacing:.1em; text-transform:uppercase;
+    color:var(--muted); font-weight:600; background:var(--surface-2)}
+  tbody tr:last-child td{border-bottom:none}
+  td.mono,.pin{font-family:"IBM Plex Mono",monospace; font-variant-numeric:tabular-nums}
+  .pin{display:inline-block; padding:1px 7px; border-radius:5px; background:var(--surface-2);
+    border:1px solid var(--hair); font-size:12px}
+  .swatch{width:11px; height:11px; border-radius:3px; display:inline-block; vertical-align:-1px; margin-right:7px}
+
+  .notes{display:grid; grid-template-columns:1fr 1fr; gap:16px}
+  @media(max-width:720px){.notes{grid-template-columns:1fr}}
+  .note{background:var(--surface); border:1px solid var(--hair); border-left:3px solid var(--accent);
+    border-radius:8px; padding:14px 16px; box-shadow:var(--shadow)}
+  .note h3{margin:0 0 6px; font-size:14.5px}
+  .note p{margin:0; font-size:13.5px; color:var(--muted)}
+  .note code, code.k{font-family:"IBM Plex Mono",monospace; font-size:.92em; background:var(--surface-2);
+    padding:1px 5px; border-radius:4px; color:var(--ink)}
+  .foot{margin-top:30px; color:var(--muted); font-size:12.5px; font-family:"IBM Plex Mono",monospace; text-align:center}
+</style>
+
+<div class="sheet">
+
+  <header class="titleblock">
+    <div class="main">
+      <p class="eyebrow">Rev A · Bench Reference</p>
+      <h1>XIAO Scooter Control Board</h1>
+      <p class="sub">Wiring for a Seeed XIAO ESP32-C3 that replaces the dead Bird 590 control board: it reads the rider's throttle and brake, drives the Lishui motor controller over the one-wire 115200 bus, and shows telemetry on an OLED.</p>
+    </div>
+    <div class="meta">
+      <div>MCU</div><div>XIAO ESP32-C3</div>
+      <div>Bus</div><div>1-wire · 115200 8N1</div>
+      <div>Logic</div><div>3.3 V</div>
+      <div>Sensors</div><div>5 V Hall</div>
+    </div>
+  </header>
+
+  <!-- ============ OVERVIEW SCHEMATIC ============ -->
+  <section>
+    <h2>System schematic</h2>
+    <div class="card">
+      <figure>
+        <div class="figpad">
+          <svg viewBox="0 0 980 560" role="img" aria-label="Block schematic: 41 V pack through a buck to a 5 V rail feeding the XIAO and the Hall sensors; throttle and brake through halving dividers into two ADC pins; UART TX through a 74LVC07 open-drain buffer onto the one-wire bus and RX tapped back through 330 ohm to the motor controller; I2C to an OLED.">
+            <!-- ===== nets: power rail ===== -->
+            <!-- pack -> buck -->
+            <rect class="box" x="26" y="40" width="120" height="46" rx="6"/>
+            <text class="t b" x="86" y="60">41 V PACK</text>
+            <text class="t mut sm" x="86" y="76">battery</text>
+            <path class="w w-pack" d="M146 63 H196"/>
+            <polygon class="a-pack" points="196,63 188,59 188,67"/>
+            <rect class="box" x="196" y="40" width="128" height="46" rx="6"/>
+            <text class="t b" x="260" y="59">BUCK</text>
+            <text class="t mut sm" x="260" y="75">41 V → 5 V</text>
+
+            <!-- 5V rail across the top -->
+            <path class="w w-pwr" d="M324 63 H905"/>
+            <text class="t pwr sm" x="470" y="54">+5 V rail</text>
+            <!-- rail taps -->
+            <path class="w w-pwr" d="M470 63 V150"/>
+            <path class="w w-pwr" d="M96 86 V150 H150"/>
+            <path class="w w-pwr" d="M96 250 H150"/>
+            <path class="w w-pwr" d="M96 150 V250"/>
+            <path class="w w-pwr" d="M905 63 V150"/>
+
+            <!-- ===== XIAO chip ===== -->
+            <rect class="chip" x="392" y="150" width="196" height="270" rx="10"/>
+            <text class="t b" x="490" y="176" style="font-size:14px">XIAO ESP32-C3</text>
+            <line x1="392" y1="188" x2="588" y2="188" stroke="var(--hair)"/>
+            <!-- top power pins -->
+            <circle class="pnode pwr" cx="470" cy="150" r="3.5"/>
+            <text class="t sm" x="470" y="205">5V</text>
+            <text class="t v33 sm" x="524" y="205">3V3</text>
+            <text class="t mut sm" x="416" y="205">GND</text>
+            <circle class="pnode v33" cx="524" cy="150" r="3.5"/>
+            <path class="w w-v33" d="M524 150 V128 H656" transform="translate(0,0)"/>
+
+            <!-- left pins -->
+            <g font-family="IBM Plex Mono">
+              <circle class="pnode sig" cx="392" cy="250" r="3.5"/>
+              <text class="t sm" x="404" y="254" text-anchor="start">D0 · GPIO2 · A0</text>
+              <circle class="pnode sig" cx="392" cy="290" r="3.5"/>
+              <text class="t sm" x="404" y="294" text-anchor="start">D1 · GPIO3 · A1</text>
+              <circle class="pnode i2c" cx="392" cy="350" r="3.5"/>
+              <text class="t sm" x="404" y="354" text-anchor="start">D4 · GPIO6 · SDA</text>
+              <circle class="pnode i2c" cx="392" cy="390" r="3.5"/>
+              <text class="t sm" x="404" y="394" text-anchor="start">D5 · GPIO7 · SCL</text>
+              <!-- right pins -->
+              <circle class="pnode bus" cx="588" cy="250" r="3.5"/>
+              <text class="t sm" x="576" y="254" text-anchor="end">TX · GPIO21 · D6</text>
+              <circle class="pnode bus" cx="588" cy="290" r="3.5"/>
+              <text class="t sm" x="576" y="294" text-anchor="end">RX · GPIO20 · D7</text>
+            </g>
+
+            <!-- ===== left: throttle / brake + dividers ===== -->
+            <rect class="box" x="26" y="150" width="120" height="46" rx="6"/>
+            <text class="t b" x="86" y="169">THROTTLE</text>
+            <text class="t mut sm" x="86" y="185">Hall · 0.8–4.2 V</text>
+            <rect class="box" x="26" y="250" width="120" height="46" rx="6"/>
+            <text class="t b" x="86" y="269">BRAKE</text>
+            <text class="t mut sm" x="86" y="285">Hall · 0.8–4.2 V</text>
+
+            <!-- divider blocks -->
+            <rect class="comp" x="206" y="228" width="120" height="44" rx="6"/>
+            <text class="t b" x="266" y="247" style="font-size:12.5px">÷2 divider</text>
+            <text class="t mut sm" x="266" y="263">10k/10k · 100nF</text>
+            <rect class="comp" x="206" y="288" width="120" height="44" rx="6"/>
+            <text class="t b" x="266" y="307" style="font-size:12.5px">÷2 divider</text>
+            <text class="t mut sm" x="266" y="323">10k/10k · 100nF</text>
+
+            <!-- throttle sig -> divider -> D0 -->
+            <path class="w w-sig" d="M146 178 H176 V250 H206"/>
+            <polygon class="a-sig" points="206,250 198,246 198,254"/>
+            <path class="w w-sig" d="M326 250 H392"/>
+            <polygon class="a-sig" points="392,250 384,246 384,254"/>
+            <text class="t sig sm" x="359" y="242">0–2.5V</text>
+            <!-- brake sig -> divider -> D1 -->
+            <path class="w w-sig" d="M146 278 H176 V310 H206"/>
+            <polygon class="a-sig" points="206,310 198,306 198,314"/>
+            <path class="w w-sig" d="M326 310 H360 V290 H392"/>
+            <polygon class="a-sig" points="392,290 384,286 384,294"/>
+
+            <!-- ===== right: bus driver + controller ===== -->
+            <!-- TX -> buffer -->
+            <path class="w w-bus" d="M588 250 H636"/>
+            <polygon class="a-bus" points="636,250 628,246 628,254"/>
+            <!-- buffer triangle -->
+            <polygon class="comp" points="636,232 636,268 690,250"/>
+            <circle cx="694" cy="250" r="3.5" fill="none" stroke="var(--ink)" stroke-width="1.5"/>
+            <text class="t sm" x="663" y="292" text-anchor="middle">74LVC07</text>
+            <text class="t mut sm" x="663" y="306" text-anchor="middle">open-drain</text>
+            <!-- buffer out -> bus node -->
+            <path class="w w-bus" d="M698 250 H812"/>
+            <!-- bus vertical -->
+            <path class="w w-bus" d="M812 250 V300"/>
+            <circle class="pnode bus" cx="812" cy="250" r="3.5"/>
+            <!-- RX tap through 330R -->
+            <rect class="comp" x="740" y="282" width="44" height="18" rx="3"/>
+            <text class="t mut sm" x="762" y="295">330Ω</text>
+            <path class="w w-bus" d="M812 300 H784"/>
+            <path class="w w-bus" d="M740 291 H588 V290" />
+            <polygon class="a-bus" points="588,290 596,286 596,294"/>
+            <text class="t bus sm" x="820" y="243" text-anchor="start">1-wire</text>
+
+            <!-- controller -->
+            <rect class="box" x="852" y="220" width="112" height="150" rx="8"/>
+            <text class="t b" x="908" y="243">MOTOR</text>
+            <text class="t b" x="908" y="258">CONTROLLER</text>
+            <text class="t mut sm" x="908" y="276">Lishui LSW6G</text>
+            <!-- internal pull-up (dashed) -->
+            <path class="w w-bus" d="M812 250 H852"/>
+            <polygon class="a-bus" points="852,250 844,246 844,254"/>
+            <line x1="908" y1="300" x2="908" y2="320" stroke="var(--v33)" stroke-width="1.5" stroke-dasharray="3 3"/>
+            <rect x="900" y="320" width="16" height="30" rx="2" fill="none" stroke="var(--muted)" stroke-width="1.3" stroke-dasharray="3 3"/>
+            <text class="t mut sm" x="908" y="340" style="font-size:9px">740Ω</text>
+            <text class="t v33 sm" x="908" y="315" style="font-size:9px">int. +V</text>
+            <path class="w w-bus" d="M908 350 V360" stroke-dasharray="3 3"/>
+            <text class="t mut sm" x="908" y="386" style="font-size:9px">internal pull-up ↑</text>
+
+            <!-- ===== bottom: OLED ===== -->
+            <rect class="box" x="392" y="470" width="196" height="56" rx="8"/>
+            <text class="t b" x="490" y="493">OLED · SSD1306</text>
+            <text class="t mut sm" x="490" y="510">128×64 · I2C · 3.3 V</text>
+            <!-- SDA/SCL up into left-side I2C pins -->
+            <path class="w w-i2c" d="M430 470 V420 H392"/>
+            <path class="w w-i2c" d="M470 470 V440 H392"/>
+            <text class="t i2c sm" x="440" y="462" text-anchor="start">SDA</text>
+            <text class="t i2c sm" x="480" y="452" text-anchor="start">SCL</text>
+            <!-- OLED VCC from the 3V3 rail -->
+            <path class="w w-v33" d="M550 470 V440 H656 V150"/>
+            <text class="t v33 sm" x="562" y="462" text-anchor="start">3V3</text>
+
+            <!-- 3V3 rail up right side to a node -->
+            <circle class="pnode v33" cx="656" cy="150" r="3"/>
+            <text class="t v33 sm" x="666" y="146" text-anchor="start">+3V3 rail (from XIAO)</text>
+          </svg>
+        </div>
+        <div class="legend">
+          <span><i style="background:var(--pack)"></i>41 V pack</span>
+          <span><i style="background:var(--pwr)"></i>+5 V</span>
+          <span><i style="background:var(--v33)"></i>+3.3 V</span>
+          <span><i style="background:var(--sig)"></i>analog signal</span>
+          <span><i style="background:var(--accent)"></i>1-wire data bus</span>
+          <span><i style="background:var(--i2c)"></i>I2C</span>
+        </div>
+      </figure>
+    </div>
+  </section>
+
+  <!-- ============ DETAIL CALL-OUTS ============ -->
+  <section>
+    <h2>Detail · the two tricky parts</h2>
+    <div class="two">
+
+      <!-- Divider detail -->
+      <div class="card">
+        <figure>
+          <div class="figpad">
+            <svg viewBox="0 0 380 300" role="img" aria-label="Voltage divider: sensor signal through a 10k resistor to a mid-node, then a second 10k resistor to ground, with a 100nF capacitor from the mid-node to ground; the mid-node feeds the ADC pin at half the input voltage.">
+              <!-- top signal -->
+              <text class="t b" x="120" y="26" text-anchor="middle">SIG 0.8–4.2 V</text>
+              <path class="w w-sig" d="M120 34 V64"/>
+              <!-- R1 -->
+              <rect class="comp" x="104" y="64" width="32" height="56" rx="3"/>
+              <text class="t sm" x="150" y="96" text-anchor="start">R1 10k</text>
+              <!-- mid node -->
+              <path class="w w-sig" d="M120 120 V150"/>
+              <circle class="pnode sig" cx="120" cy="150" r="4"/>
+              <!-- branch right to ADC -->
+              <path class="w w-sig" d="M120 150 H300"/>
+              <polygon class="a-sig" points="300,150 292,146 292,154"/>
+              <text class="t b sig" x="306" y="147" text-anchor="start" style="font-size:11px">ADC</text>
+              <text class="t mut sm" x="306" y="161" text-anchor="start">0.4–2.1 V</text>
+              <!-- cap branch -->
+              <path class="w w-sig" d="M180 150 V182"/>
+              <line x1="166" y1="182" x2="194" y2="182" stroke="var(--ink)" stroke-width="1.6"/>
+              <line x1="166" y1="189" x2="194" y2="189" stroke="var(--ink)" stroke-width="1.6"/>
+              <path class="w w-gnd" d="M180 189 V236"/>
+              <text class="t mut sm" x="200" y="188" text-anchor="start">100nF</text>
+              <!-- R2 -->
+              <path class="w w-sig" d="M120 150 V172"/>
+              <rect class="comp" x="104" y="172" width="32" height="56" rx="3"/>
+              <text class="t sm" x="98" y="204" text-anchor="end">R2 10k</text>
+              <path class="w w-gnd" d="M120 228 V236"/>
+              <!-- ground rail -->
+              <path class="w w-gnd" d="M96 236 H204"/>
+              <line x1="140" y1="244" x2="160" y2="244" class="w w-gnd"/>
+              <line x1="144" y1="250" x2="156" y2="250" class="w w-gnd"/>
+              <line x1="147" y1="256" x2="153" y2="256" class="w w-gnd"/>
+              <text class="t mut sm" x="150" y="278" text-anchor="middle">GND</text>
+            </svg>
+          </div>
+          <figcaption><strong>Halving divider.</strong> Two equal 10 k resistors cut the sensor to half, keeping a 5 V fault off the pin and the signal in the ADC's linear band. The 100 nF cap feeds the sample-and-hold. Draw ≈ 0.25 mA per channel — negligible.</figcaption>
+        </figure>
+      </div>
+
+      <!-- Bus driver detail -->
+      <div class="card">
+        <figure>
+          <div class="figpad">
+            <svg viewBox="0 0 380 300" role="img" aria-label="One-wire bus: TX into a 74LVC07 open-drain buffer whose output joins the data line; the controller's internal 740 ohm pull-up holds the line high; RX taps the line through 330 ohm. Idle leaves the line high; a low bit pulls it down.">
+              <!-- controller pull-up top -->
+              <text class="t v33 sm" x="300" y="30" text-anchor="middle">controller +V</text>
+              <path class="w w-v33" d="M300 34 V56"/>
+              <rect class="comp" x="288" y="56" width="24" height="44" rx="3"/>
+              <text class="t mut sm" x="318" y="82" text-anchor="start">740Ω</text>
+              <path class="w w-bus" d="M300 100 V150"/>
+              <!-- bus node -->
+              <circle class="pnode bus" cx="300" cy="150" r="4.5"/>
+              <text class="t b bus" x="300" y="138" text-anchor="middle" style="font-size:11px">DATA LINE</text>
+              <!-- TX -> buffer -->
+              <text class="t sm" x="26" y="150" text-anchor="start">TX</text>
+              <path class="w w-bus" d="M48 150 H92"/>
+              <polygon class="comp" points="92,130 92,170 134,150"/>
+              <circle cx="138" cy="150" r="3.5" fill="none" stroke="var(--ink)" stroke-width="1.5"/>
+              <text class="t sm" x="110" y="192" text-anchor="middle">74LVC07</text>
+              <path class="w w-bus" d="M142 150 H300"/>
+              <!-- RX tap -->
+              <text class="t sm" x="26" y="238" text-anchor="start">RX</text>
+              <path class="w w-bus" d="M48 238 H190"/>
+              <rect class="comp" x="190" y="229" width="40" height="18" rx="3"/>
+              <text class="t mut sm" x="210" y="242" text-anchor="middle">330Ω</text>
+              <path class="w w-bus" d="M230 238 H300 V150"/>
+              <polygon class="a-bus" points="52,238 60,234 60,242"/>
+              <!-- to controller -->
+              <path class="w w-bus" d="M300 150 H344"/>
+              <polygon class="a-bus" points="344,150 336,146 336,154"/>
+              <text class="t mut sm" x="348" y="147" text-anchor="start" style="font-size:9px">to MCU</text>
+            </svg>
+          </div>
+          <figcaption><strong>Half-duplex, one wire.</strong> Idle: buffer is Hi-Z, the controller's ~740 Ω pull-up holds the line high. A low bit: the buffer sinks ≈ 4.5 mA and the line goes low — a clean sub-0.3 V that the controller reads. No added pull-up. RX hears your own echo; filter it in software.</figcaption>
+        </figure>
+      </div>
+    </div>
+  </section>
+
+  <!-- ============ PIN MAP ============ -->
+  <section>
+    <h2>Pin map</h2>
+    <div class="tablewrap">
+      <table>
+        <thead><tr><th>XIAO pin</th><th>GPIO</th><th>Role</th><th>Connects to</th></tr></thead>
+        <tbody>
+          <tr><td class="mono">D0</td><td class="mono">GPIO2</td><td><span class="swatch" style="background:var(--sig)"></span>ADC1_CH2 in</td><td>Throttle divider mid-node (0–2.5 V)</td></tr>
+          <tr><td class="mono">D1</td><td class="mono">GPIO3</td><td><span class="swatch" style="background:var(--sig)"></span>ADC1_CH3 in</td><td>Brake divider mid-node (0–2.5 V)</td></tr>
+          <tr><td class="mono">D4</td><td class="mono">GPIO6</td><td><span class="swatch" style="background:var(--i2c)"></span>I2C SDA</td><td>OLED SDA</td></tr>
+          <tr><td class="mono">D5</td><td class="mono">GPIO7</td><td><span class="swatch" style="background:var(--i2c)"></span>I2C SCL</td><td>OLED SCL</td></tr>
+          <tr><td class="mono">D6</td><td class="mono">GPIO21</td><td><span class="swatch" style="background:var(--accent)"></span>UART TX</td><td>74LVC07 input → bus</td></tr>
+          <tr><td class="mono">D7</td><td class="mono">GPIO20</td><td><span class="swatch" style="background:var(--accent)"></span>UART RX</td><td>Bus via 330 Ω</td></tr>
+          <tr><td class="mono">5V</td><td class="mono">—</td><td><span class="swatch" style="background:var(--pwr)"></span>Power in</td><td>Buck 5 V (or controller 5 V)</td></tr>
+          <tr><td class="mono">3V3</td><td class="mono">—</td><td><span class="swatch" style="background:var(--v33)"></span>Power out</td><td>OLED VCC</td></tr>
+          <tr><td class="mono">GND</td><td class="mono">—</td><td><span class="swatch" style="background:var(--muted)"></span>Ground</td><td>Common with scooter GND</td></tr>
+        </tbody>
+      </table>
+    </div>
+    <p style="color:var(--muted); font-size:12.5px; margin:10px 2px 0; font-family:'IBM Plex Mono',monospace">
+      ADC on ADC1 (GPIO0–4) only — ADC2 is unstable on the C3. GPIO numbers are the ESP32-C3's; D-numbers are the XIAO silkscreen.
+    </p>
+  </section>
+
+  <!-- ============ BOM ============ -->
+  <section>
+    <h2>Bill of materials</h2>
+    <div class="tablewrap">
+      <table>
+        <thead><tr><th>Qty</th><th>Part</th><th>Value / spec</th><th>Purpose</th></tr></thead>
+        <tbody>
+          <tr><td class="mono">1</td><td>Seeed XIAO ESP32-C3</td><td class="mono">—</td><td>The controller / dashboard brain</td></tr>
+          <tr><td class="mono">4</td><td>Resistor</td><td class="mono">10 kΩ ¼W</td><td>Throttle + brake dividers (2 each)</td></tr>
+          <tr><td class="mono">2</td><td>Capacitor</td><td class="mono">100 nF</td><td>ADC sample filter on each mid-node</td></tr>
+          <tr><td class="mono">1</td><td>74LVC07A</td><td class="mono">hex open-drain</td><td>Bus TX driver (or 1× 2N7002 + TX invert)</td></tr>
+          <tr><td class="mono">2</td><td>Resistor</td><td class="mono">330 Ω</td><td>Series protection on RX / bus tap</td></tr>
+          <tr><td class="mono">1</td><td>OLED SSD1306</td><td class="mono">128×64 I2C</td><td>Telemetry display</td></tr>
+          <tr><td class="mono">1</td><td>Buck converter</td><td class="mono">41 V → 5 V</td><td>Power (or tap controller's 5 V rail)</td></tr>
+          <tr><td class="mono">1</td><td>Clamp diode <em>(opt.)</em></td><td class="mono">BAT54 / 3.3 V zener</td><td>Transient protection on RX</td></tr>
+        </tbody>
+      </table>
+    </div>
+  </section>
+
+  <!-- ============ NOTES ============ -->
+  <section>
+    <h2>Build notes</h2>
+    <div class="notes">
+      <div class="note">
+        <h3>Power: two ways in</h3>
+        <p>Cleanest is a <code>41 V→5 V</code> buck off the pack into the XIAO's 5 V pin — it doesn't load the controller and leaves room for a standby cutoff later. Or tap the controller's own 5 V rail if it can spare ~100 mA for MCU + OLED + sensors. Tie all grounds together.</p>
+      </div>
+      <div class="note">
+        <h3>Sensors need 5 V</h3>
+        <p>The Hall throttle and brake are 5 V parts. Feed their VCC from the 5 V rail, run the signal back through the dividers. Calibrate idle and full-scale in software and average a few samples — the C3 ADC is a touch noisy.</p>
+      </div>
+      <div class="note">
+        <h3>Brake logic lives in firmware</h3>
+        <p>The controller has no brake field. Mirror the stock board: when the brake ADC crosses ~half travel, force the throttle byte in the <code>0x1A</code> poll to <code>0x00</code>. Braking is "command speed zero", nothing more on the wire.</p>
+      </div>
+      <div class="note">
+        <h3>Why not just a bare divider on TX?</h3>
+        <p>The bus is bidirectional. TX must release the line so the controller can drive its replies — that's what open-drain gives you. A plain divider or a diode can't reach a low the controller reads against its stiff 740 Ω pull-up; the 100 Ω hack proved that on the bench.</p>
+      </div>
+    </div>
+  </section>
+
+  <p class="foot">Bird 590 · Lishui LSW6G-RF-FOC · colon protocol 115200 8N1 — see PROTOCOL.md for the frame + field map</p>
+</div>
+
+<style>
+  /* SVG element classes (theme-aware via tokens) */
+  .w{fill:none; stroke-width:2; stroke-linecap:round; stroke-linejoin:round}
+  .w-gnd{stroke:var(--muted)} .w-pwr{stroke:var(--pwr)} .w-pack{stroke:var(--pack)}
+  .w-v33{stroke:var(--v33)} .w-sig{stroke:var(--sig)} .w-bus{stroke:var(--accent)} .w-i2c{stroke:var(--i2c)}
+  .box{fill:var(--surface-2); stroke:var(--ink); stroke-width:1.5}
+  .chip{fill:var(--surface-2); stroke:var(--ink); stroke-width:2}
+  .comp{fill:var(--surface); stroke:var(--ink); stroke-width:1.5}
+  .t{fill:var(--ink); font-family:"IBM Plex Mono",monospace; font-size:12px; text-anchor:middle}
+  .t.b{font-weight:600} .t.mut{fill:var(--muted)} .t.sm{font-size:10px}
+  .t.pwr{fill:var(--pwr)} .t.v33{fill:var(--v33)} .t.sig{fill:var(--sig)} .t.bus{fill:var(--accent)} .t.i2c{fill:var(--i2c)}
+  .pnode{stroke:var(--surface); stroke-width:1}
+  .pnode.sig{fill:var(--sig)} .pnode.i2c{fill:var(--i2c)} .pnode.bus{fill:var(--accent)}
+  .pnode.pwr{fill:var(--pwr)} .pnode.v33{fill:var(--v33)}
+  .a-sig{fill:var(--sig)} .a-bus{fill:var(--accent)} .a-pack{fill:var(--pack)}
+</style>

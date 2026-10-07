@@ -1,0 +1,17 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100" width="100" height="100">
+  <!-- Poop pile silhouette / stencil (single filled path) for PCB silkscreen -->
+  <path fill="#000000" d="
+    M50,8
+    C54,16 64,20 62,30
+    C73,31 75,40 64,44
+    C78,46 82,56 69,61
+    C85,64 91,77 77,82
+    C86,84 88,91 80,92
+    L20,92
+    C12,91 14,84 23,82
+    C9,77 15,64 31,61
+    C18,56 22,46 36,44
+    C25,40 27,31 38,30
+    C36,20 46,16 50,8
+    Z"/>
+</svg>
