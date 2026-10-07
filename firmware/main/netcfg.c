@@ -51,6 +51,15 @@ static esp_err_t h_root(httpd_req_t *req)
     return httpd_resp_send(req, index_html_start, len);
 }
 
+static esp_err_t h_favicon(httpd_req_t *req)
+{
+    // The page embeds an emoji favicon via data-URI; answer any stray probe
+    // with 204 so it never logs a 404.
+    httpd_resp_set_status(req, "204 No Content");
+    httpd_resp_send(req, NULL, 0);
+    return ESP_OK;
+}
+
 static esp_err_t h_cfg_get(httpd_req_t *req)
 {
     touch();
@@ -238,6 +247,7 @@ static void register_handlers(void)
 {
     const httpd_uri_t uris[] = {
         { .uri = "/",            .method = HTTP_GET,  .handler = h_root },
+        { .uri = "/favicon.ico", .method = HTTP_GET,  .handler = h_favicon },
         { .uri = "/api/config",  .method = HTTP_GET,  .handler = h_cfg_get },
         { .uri = "/api/config",  .method = HTTP_POST, .handler = h_cfg_post },
         { .uri = "/api/status",  .method = HTTP_GET,  .handler = h_status },

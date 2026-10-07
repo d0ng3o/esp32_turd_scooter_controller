@@ -2,94 +2,170 @@
 <html lang="en">
 <head>
 <meta charset="utf-8">
-<meta name="viewport" content="width=device-width,initial-scale=1">
-<title>Turd Scooter Config</title>
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<title>Turd Scooter</title>
+<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='88'>💩</text></svg>">
 <style>
- body{font-family:system-ui,sans-serif;margin:0;background:#f1efe9;color:#232323}
- header{background:#6b4423;color:#fff;padding:12px 16px;font-weight:700}
- .wrap{max-width:640px;margin:0 auto;padding:16px}
- .status{font-size:13px;color:#555;margin:8px 0;min-height:1.2em}
- fieldset{background:#fff;border:1px solid #ddd;border-radius:8px;margin:12px 0;padding:8px 12px}
- legend{font-weight:700;padding:0 6px}
- label{display:flex;justify-content:space-between;align-items:center;margin:6px 0;gap:10px}
- input,select{padding:6px;border:1px solid #ccc;border-radius:4px;font-size:14px}
- input[type=number]{width:120px}input[type=text]{width:160px}
- button{background:#6b4423;color:#fff;border:0;border-radius:6px;padding:10px 16px;font-size:15px;cursor:pointer;margin:4px 0}
- button.sec{background:#888}
- progress{width:100%}
+ :root{
+   --bg:#ece7e1; --card:#fff; --ink:#2a211b; --muted:#8a7d72; --line:#e6ded5;
+   --accent:#7a4a24; --accent-ink:#fff; --ok:#2e7d46; --warn:#c0392b; --amber:#b9791f;
+   --shadow:0 1px 2px rgba(40,30,20,.05),0 8px 24px rgba(40,30,20,.06);
+ }
+ *{box-sizing:border-box}
+ body{margin:0;background:var(--bg);color:var(--ink);
+   font:15px/1.4 system-ui,-apple-system,Segoe UI,Roboto,sans-serif;
+   padding-bottom:88px}
+ header{position:sticky;top:0;z-index:5;background:var(--accent);color:var(--accent-ink);
+   padding:calc(14px + env(safe-area-inset-top,0px)) 18px 14px;font-weight:700;font-size:17px;
+   display:flex;align-items:center;gap:8px;box-shadow:var(--shadow)}
+ main{max-width:560px;margin:0 auto;padding:16px}
+ .status{display:grid;grid-template-columns:repeat(4,1fr);gap:8px;margin-bottom:10px}
+ .tile{background:var(--card);border-radius:12px;padding:12px 8px;text-align:center;box-shadow:var(--shadow)}
+ .tile .big{font-size:24px;font-weight:700;letter-spacing:-.5px}
+ .tile .cap{font-size:11px;color:var(--muted);margin-top:2px;text-transform:uppercase;letter-spacing:.04em}
+ .pills{display:flex;gap:8px;margin-bottom:14px}
+ .pill{flex:1;text-align:center;padding:7px;border-radius:10px;font-size:13px;font-weight:600;
+   background:#ddd4c9;color:var(--muted)}
+ .pill.on{background:var(--ok);color:#fff}.pill.off{background:var(--warn);color:#fff}
+ .pill.lock{background:var(--amber);color:#fff}
+ .card{background:var(--card);border-radius:14px;box-shadow:var(--shadow);margin:12px 0;overflow:hidden}
+ .card h2{margin:0;padding:12px 16px;font-size:14px;font-weight:700;color:var(--accent);
+   border-bottom:1px solid var(--line);text-transform:uppercase;letter-spacing:.04em}
+ .row{display:flex;align-items:center;justify-content:space-between;gap:12px;
+   padding:10px 16px;border-bottom:1px solid var(--line)}
+ .row:last-child{border-bottom:0}
+ .row label{color:var(--ink)}
+ .row .u{color:var(--muted);font-size:12px;margin-left:6px}
+ input,select{font:inherit;padding:8px 10px;border:1px solid #d8cfc4;border-radius:9px;
+   background:#fbf8f4;color:var(--ink);min-width:0}
+ input[type=number]{width:110px;text-align:right}input[type=text]{width:150px}
+ select{width:150px}
+ input:focus,select:focus{outline:2px solid var(--accent);outline-offset:0;border-color:var(--accent)}
+ .sw{position:relative;width:46px;height:26px;flex:0 0 auto}
+ .sw input{position:absolute;opacity:0;width:100%;height:100%;margin:0;cursor:pointer}
+ .sw span{position:absolute;inset:0;background:#cfc4b7;border-radius:999px;transition:.15s}
+ .sw span::after{content:"";position:absolute;top:3px;left:3px;width:20px;height:20px;
+   background:#fff;border-radius:50%;transition:.15s;box-shadow:0 1px 2px rgba(0,0,0,.2)}
+ .sw input:checked + span{background:var(--ok)}
+ .sw input:checked + span::after{transform:translateX(20px)}
+ .card .pad{padding:14px 16px}
+ button{font:inherit;font-weight:600;border:0;border-radius:10px;padding:10px 16px;cursor:pointer;
+   background:var(--accent);color:#fff}
+ button.ghost{background:transparent;color:var(--accent);border:1.5px solid var(--accent)}
+ button.full{width:100%}
+ .btnrow{display:flex;gap:8px;flex-wrap:wrap;margin-top:6px}
+ .msg{font-size:13px;color:var(--muted);margin-top:8px;min-height:1.1em}
+ progress{width:100%;height:10px;margin-top:10px;accent-color:var(--accent)}
+ input[type=file]{width:100%;background:transparent;border:1px dashed #cbbfb0;padding:10px}
+ .savebar{position:fixed;left:0;right:0;bottom:0;padding:12px 16px calc(12px + env(safe-area-inset-bottom,0px));
+   background:linear-gradient(transparent,var(--bg) 24%);}
+ .savebar button{box-shadow:var(--shadow)}
+ .toast{position:fixed;left:50%;bottom:92px;transform:translateX(-50%) translateY(8px);
+   background:#2a211b;color:#fff;padding:9px 16px;border-radius:999px;font-size:13px;
+   opacity:0;pointer-events:none;transition:.2s}
+ .toast.show{opacity:1;transform:translateX(-50%) translateY(0)}
 </style>
 </head>
 <body>
-<header>💩 Turd Scooter — Config &amp; OTA</header>
-<div class="wrap">
- <div class="status" id="st">loading…</div>
+<header>💩 Turd Scooter</header>
+<main>
+ <section class="status">
+   <div class="tile"><div class="big" id="t_speed">--</div><div class="cap" id="t_unit">km/h</div></div>
+   <div class="tile"><div class="big" id="t_soc">--</div><div class="cap">SoC %</div></div>
+   <div class="tile"><div class="big" id="t_cur">--</div><div class="cap">Amps</div></div>
+   <div class="tile"><div class="big" id="t_pack">--</div><div class="cap">Pack V</div></div>
+ </section>
+ <div class="pills">
+   <span class="pill" id="p_link">link --</span>
+   <span class="pill" id="p_lock">lock --</span>
+ </div>
+
  <form id="cfg"></form>
- <button type="button" onclick="save()">Save settings</button>
- <fieldset><legend>Throttle / brake calibration</legend>
-  <div class="status" id="calmsg">Press Start, then sweep the throttle and squeeze the brake fully.</div>
-  <button type="button" onclick="calStart()">Start</button>
-  <button type="button" onclick="calApply()">Apply &amp; save</button>
-  <button type="button" class="sec" onclick="calCancel()">Cancel</button>
- </fieldset>
- <fieldset><legend>Firmware update (OTA)</legend>
-  <input type="file" id="fw" accept=".bin">
-  <button type="button" onclick="ota()">Upload &amp; flash</button>
-  <progress id="pg" value="0" max="100" hidden></progress>
-  <div class="status" id="otamsg"></div>
- </fieldset>
- <button type="button" class="sec" onclick="reboot()">Reboot</button>
-</div>
+
+ <section class="card">
+   <h2>Throttle / brake calibration</h2>
+   <div class="pad">
+     <div class="msg" id="calmsg">Press Start, then sweep the throttle and squeeze the brake fully.</div>
+     <div class="btnrow">
+       <button type="button" onclick="calStart()">Start</button>
+       <button type="button" onclick="calApply()">Apply &amp; save</button>
+       <button type="button" class="ghost" onclick="calCancel()">Cancel</button>
+     </div>
+   </div>
+ </section>
+
+ <section class="card">
+   <h2>Firmware update (OTA)</h2>
+   <div class="pad">
+     <input type="file" id="fw" accept=".bin">
+     <div class="btnrow"><button type="button" onclick="ota()">Upload &amp; flash</button></div>
+     <progress id="pg" value="0" max="100" hidden></progress>
+     <div class="msg" id="otamsg"></div>
+   </div>
+ </section>
+
+ <section class="card">
+   <h2>Device</h2>
+   <div class="pad"><button type="button" class="ghost full" onclick="reboot()">Reboot</button></div>
+ </section>
+</main>
+
+<div class="savebar"><button class="full" onclick="save()">Save settings</button></div>
+<div class="toast" id="toast"></div>
+
 <script>
 const S=[
  ['Calibration',[['thr_raw_min','Throttle raw min','n'],['thr_raw_max','Throttle raw max','n'],
   ['brk_raw_min','Brake raw min','n'],['brk_raw_max','Brake raw max','n'],
-  ['thr_deadzone_pct','Throttle deadzone %','n'],['brk_active_pct','Brake on %','n']]],
- ['Ride feel',[['throttle_cap','Throttle cap 0-255','n'],['soft_start_ms','Soft-start ms','n'],
-  ['throttle_curve','Throttle curve',['Linear','Progressive']],['kick_to_start','Kick to start','b']]],
- ['Lock & security',[['auto_lock_timeout_s','Auto-lock idle s','n'],['motion_alarm','Motion alarm','b'],
-  ['auto_sleep_timeout_s','Deep-sleep idle s','n']]],
+  ['thr_deadzone_pct','Throttle deadzone','n','%'],['brk_active_pct','Brake on threshold','n','%']]],
+ ['Ride feel',[['throttle_cap','Throttle cap','n','0-255'],['soft_start_ms','Soft-start','n','ms'],
+  ['throttle_curve','Throttle curve',['Linear','Progressive']]]],
+ ['Lock & security',[['auto_lock_timeout_s','Auto-lock idle','n','s'],['motion_alarm','Motion alarm','b'],
+  ['auto_sleep_timeout_s','Deep-sleep idle','n','s']]],
  ['Lights',[['headlight_mode','Headlight',['Auto','On','Off','Manual']],
   ['brakelight_mode','Brake light',['Steady','Strobe tail','Status LED']],
-  ['headlight_off_delay_ms','Headlight off delay ms','n']]],
- ['IMU & feedback',[['imu_wake_sens','IMU wake sens 0-63','n'],['buzzer_enable','Buzzer','b'],
-  ['led_brightness','LED brightness 0-255','n']]],
- ['WiFi',[['ap_ssid','AP SSID','s'],['ap_pass','AP password (8+)','s'],['config_timeout_s','Config timeout s','n']]],
+  ['headlight_off_delay_ms','Headlight off delay','n','ms']]],
+ ['IMU & feedback',[['imu_wake_sens','IMU wake sensitivity','n','0-63'],['buzzer_enable','Buzzer','b'],
+  ['led_brightness','LED brightness','n','0-255']]],
+ ['WiFi',[['ap_ssid','AP SSID','s'],['ap_pass','AP password','s'],['config_timeout_s','Config timeout','n','s']]],
  ['System',[['units','Units',['km/h','mph']]]],
 ];
+function el(t,c){const e=document.createElement(t);if(c)e.className=c;return e;}
 function build(){const f=document.getElementById('cfg');f.innerHTML='';
- for(const[grp,items]of S){const fs=document.createElement('fieldset');
-  fs.innerHTML='<legend>'+grp+'</legend>';
-  for(const[k,lab,t]of items){const l=document.createElement('label');l.append(lab);let e;
-   if(t==='b'){e=document.createElement('input');e.type='checkbox';}
-   else if(Array.isArray(t)){e=document.createElement('select');t.forEach((o,i)=>{const op=document.createElement('option');op.value=i;op.text=o;e.append(op);});}
-   else if(t==='s'){e=document.createElement('input');e.type='text';}
-   else{e=document.createElement('input');e.type='number';}
-   e.id='f_'+k;l.append(e);fs.append(l);}
-  f.append(fs);}}
+ for(const[grp,items]of S){const card=el('section','card');const h=el('h2');h.textContent=grp;card.append(h);
+  for(const[k,lab,t,unit]of items){const row=el('div','row');const l=el('label');l.textContent=lab;row.append(l);
+   let ctl;
+   if(t==='b'){const sw=el('label','sw');const cb=el('input');cb.type='checkbox';cb.id='f_'+k;
+     const sp=el('span');sw.append(cb,sp);ctl=sw;}
+   else if(Array.isArray(t)){ctl=el('select');ctl.id='f_'+k;t.forEach((o,i)=>{const op=el('option');op.value=i;op.text=o;ctl.append(op);});}
+   else if(t==='s'){ctl=el('input');ctl.type='text';ctl.id='f_'+k;}
+   else{const wrap=el('div');wrap.style.whiteSpace='nowrap';const inp=el('input');inp.type='number';inp.id='f_'+k;
+     wrap.append(inp);if(unit){const u=el('span','u');u.textContent=unit;wrap.append(u);}ctl=wrap;}
+   row.append(ctl);card.append(row);}
+  f.append(card);}}
 function fill(c){for(const[,items]of S)for(const[k,,t]of items){const e=document.getElementById('f_'+k);
   if(!e||!(k in c))continue;if(t==='b')e.checked=!!c[k];else e.value=c[k];}}
 function collect(){const o={};for(const[,items]of S)for(const[k,,t]of items){const e=document.getElementById('f_'+k);
-  if(t==='b')o[k]=e.checked;else if(t==='s')o[k]=e.value;else o[k]=parseInt(e.value);}return o;}
+  if(!e)continue;if(t==='b')o[k]=e.checked;else if(t==='s')o[k]=e.value;else o[k]=parseInt(e.value);}return o;}
+let toastT=null;
+function toast(m){const t=document.getElementById('toast');t.textContent=m;t.classList.add('show');
+  clearTimeout(toastT);toastT=setTimeout(()=>t.classList.remove('show'),2200);}
 async function load(){try{const c=await(await fetch('/api/config')).json();build();fill(c);}
-  catch(e){document.getElementById('st').textContent='config load failed';}poll();}
+  catch(e){toast('config load failed');}poll();}
 async function save(){try{const r=await fetch('/api/config',{method:'POST',body:JSON.stringify(collect())});
-  document.getElementById('st').textContent=r.ok?'saved ✓':'save failed';}catch(e){document.getElementById('st').textContent='save error';}}
+  toast(r.ok?'Saved ✓':'Save failed');}catch(e){toast('Save error');}}
+function pill(id,txt,cls){const p=document.getElementById(id);p.textContent=txt;p.className='pill '+cls;}
 async function poll(){try{const s=await(await fetch('/api/status')).json();
-  document.getElementById('st').textContent='link '+(s.link?'up':'down')+' · '+(s.locked?'LOCKED':'unlocked')+
-   ' · speed '+s.speed+' · SoC '+s.soc+'% · '+(s.current_cA/100).toFixed(2)+' A · '+
-   (s.pack_mv/1000).toFixed(1)+' V';}catch(e){}
-  setTimeout(poll,2000);}
-function ota(){const f=document.getElementById('fw').files[0];if(!f){document.getElementById('otamsg').textContent='pick a .bin first';return;}
-  const pg=document.getElementById('pg');pg.hidden=false;const m=document.getElementById('otamsg');m.textContent='uploading…';
-  const x=new XMLHttpRequest();x.open('POST','/api/ota');
-  x.upload.onprogress=e=>{if(e.lengthComputable)pg.value=100*e.loaded/e.total;};
-  x.onload=()=>{m.textContent=x.status===200?'flashed ✓ — rebooting':'OTA failed ('+x.status+')';};
-  x.onerror=()=>m.textContent='upload error';x.send(f);}
-async function reboot(){try{await fetch('/api/reboot',{method:'POST'});}catch(e){}
-  document.getElementById('st').textContent='rebooting…';}
+  const kmh=s.speed*0.16;document.getElementById('t_speed').textContent=Math.round(kmh);
+  document.getElementById('t_soc').textContent=s.soc;
+  document.getElementById('t_cur').textContent=(s.current_cA/100).toFixed(1);
+  document.getElementById('t_pack').textContent=(s.pack_mv/1000).toFixed(1);
+  pill('p_link',s.link?'link up':'no link',s.link?'on':'off');
+  pill('p_lock',s.locked?'locked':'unlocked',s.locked?'lock':'on');
+ }catch(e){}setTimeout(poll,2000);}
 let calTimer=null;
 async function calStart(){await fetch('/api/cal',{method:'POST',body:'{"action":"start"}'});
-  if(!calTimer)calTimer=setInterval(calPoll,400);}
+  if(!calTimer)calTimer=setInterval(calPoll,400);toast('Calibrating — sweep the controls');}
 async function calPoll(){try{const c=await(await fetch('/api/cal')).json();
   document.getElementById('calmsg').textContent=c.active?
    ('capturing… throttle '+c.thr+' ['+c.thr_min+'…'+c.thr_max+']  brake '+c.brk+' ['+c.brk_min+'…'+c.brk_max+']'):'idle';
@@ -97,10 +173,17 @@ async function calPoll(){try{const c=await(await fetch('/api/cal')).json();
 async function calApply(){await fetch('/api/cal',{method:'POST',body:'{"action":"apply"}'});
   if(calTimer){clearInterval(calTimer);calTimer=null;}
   try{const c=await(await fetch('/api/config')).json();fill(c);}catch(e){}
-  document.getElementById('calmsg').textContent='applied ✓ (saved)';}
+  document.getElementById('calmsg').textContent='applied ✓ (saved)';toast('Calibration saved ✓');}
 async function calCancel(){await fetch('/api/cal',{method:'POST',body:'{"action":"cancel"}'});
   if(calTimer){clearInterval(calTimer);calTimer=null;}
   document.getElementById('calmsg').textContent='cancelled';}
+function ota(){const f=document.getElementById('fw').files[0];if(!f){toast('Pick a .bin first');return;}
+  const pg=document.getElementById('pg');pg.hidden=false;const m=document.getElementById('otamsg');m.textContent='uploading…';
+  const x=new XMLHttpRequest();x.open('POST','/api/ota');
+  x.upload.onprogress=e=>{if(e.lengthComputable)pg.value=100*e.loaded/e.total;};
+  x.onload=()=>{const ok=x.status===200;m.textContent=ok?'flashed ✓ — rebooting':'OTA failed ('+x.status+')';toast(ok?'Flashed ✓':'OTA failed');};
+  x.onerror=()=>{m.textContent='upload error';toast('Upload error');};x.send(f);}
+async function reboot(){try{await fetch('/api/reboot',{method:'POST'});}catch(e){}toast('Rebooting…');}
 load();
 </script>
 </body>
