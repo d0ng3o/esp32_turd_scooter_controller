@@ -11,6 +11,8 @@ idf_component_register(
         "gesture.c"
         "security.c"
         "imu.c"
+        "i2cbus.c"
+        "display.c"
         "power.c"
         "netcfg.c"
         "buzzer.c"
@@ -18,8 +20,9 @@ idf_component_register(
     INCLUDE_DIRS "."
     REQUIRES
         driver              # gpio, uart, ledc
-        esp_driver_i2c      # i2c_master (IMU)
-        esp_adc             # adc_oneshot (throttle/brake)
+        esp_driver_i2c      # i2c_master (IMU + OLED)
+        esp_adc             # adc_oneshot (throttle/brake/pack)
+        esp_lcd             # OLED panel IO
         nvs_flash           # config store
         esp_timer           # timestamps
         esp_hw_support      # esp_sleep (deep sleep)

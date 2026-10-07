@@ -18,6 +18,7 @@
 #include "imu.h"
 #include "power.h"
 #include "netcfg.h"
+#include "display.h"
 #include "buzzer.h"
 #include "status_led.h"
 
@@ -26,6 +27,20 @@
 #include "esp_log.h"
 
 static const char *TAG = "app";
+
+static const char *state_str(ride_state_t s, bool config)
+{
+    if (config) return "CONFIG";
+    switch (s) {
+        case RIDE_FAULT:   return "NO LINK";
+        case RIDE_LOCKED:  return "LOCKED";
+        case RIDE_IDLE:    return "IDLE";
+        case RIDE_READY:   return "READY";
+        case RIDE_RIDING:  return "RIDE";
+        case RIDE_BRAKING: return "BRAKE";
+        default:           return "";
+    }
+}
 
 static void ride_task(void *arg)
 {
@@ -85,6 +100,17 @@ static void ride_task(void *arg)
         }
         last_state = out.state;
 
+        // Refresh the OLED a few times per second.
+        if ((n % 10) == 0) {
+            double kmh = telem.speed * 0.16;     // ~0.16 km/h per speed count
+            int   spd  = (g_cfg.units == UNITS_MPH) ? (int)(kmh * 0.6214 + 0.5)
+                                                    : (int)(kmh + 0.5);
+            display_update(state_str(out.state, config_active), spd,
+                           g_cfg.units == UNITS_MPH ? "mph" : "km/h",
+                           telem.soc, telem.current_cA / 100.0,
+                           inputs_pack_mv() / 1000.0);
+        }
+
         // Stage-2 idle: deep sleep after the long idle timeout. Never sleep while
         // the config portal is open. Does not return if it sleeps (IMU wakes it).
         power_update(active || config_active);
@@ -104,6 +130,7 @@ void app_main(void)
     gesture_init();
     security_init();
     imu_init();          // non-fatal if absent; wake-on-motion + alarm degrade off
+    display_init();      // non-fatal if the OLED is absent
     power_init();
 
     status_led_state(RIDE_LOCKED);  // boots locked

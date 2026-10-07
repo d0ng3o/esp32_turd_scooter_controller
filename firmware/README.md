@@ -22,8 +22,13 @@ interlocks. Built with **ESP-IDF v5.2+**.
 | Lock/security: boots locked, auto-lock, motion alarm | ✅ |
 | IMU (LSM6DS3TR-C) wake-on-motion + idle keep-alive | ✅ |
 | Deep sleep to conserve the pack (two-stage idle; lights cleared before sleep) | ✅ |
-| WiFi config portal + web UI + OTA | ⬜ next (config-mode entry is stubbed) |
-| OLED (LVGL) · pack-voltage ADC · runtime NVS calibration routine | ⬜ later |
+| WiFi config portal + web UI + OTA (brake+20 s gesture) | ✅ |
+| Pack-voltage sensing (ADC2, WiFi-gated) | ✅ |
+| Guided throttle/brake calibration (web UI) | ✅ |
+| OLED telemetry (SSD1309, LVGL) | ✅ |
+
+**Feature-complete** against the plan. Remaining work is hardware validation
+(the open-drain single-wire UART and the IMU register sequence want a scope).
 
 ## Layout
 

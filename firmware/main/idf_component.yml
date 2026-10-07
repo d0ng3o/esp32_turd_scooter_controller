@@ -5,3 +5,7 @@ dependencies:
   # WS2812 status LED driver (RMT-based).
   espressif/led_strip:
     version: "^2.5"
+  # OLED SSD1306/SSD1309 driver is built into esp_lcd (IDF 5.4) - no dep needed.
+  # LVGL + the esp_lcd glue (pulls in lvgl/lvgl).
+  espressif/esp_lvgl_port:
+    version: "^2"

@@ -12,6 +12,7 @@
 #include "imu.h"
 #include "board.h"
 #include "config.h"
+#include "i2cbus.h"
 
 #include "driver/i2c_master.h"
 #include "esp_log.h"
@@ -31,7 +32,6 @@ static const char *TAG = "imu";
 #define WHO_AM_I_VAL      0x6A
 #define WU_IA_BIT         0x08   // WAKE_UP_SRC: wake-up event active
 
-static i2c_master_bus_handle_t s_bus;
 static i2c_master_dev_handle_t s_dev;
 static bool s_present;
 
@@ -66,15 +66,7 @@ static void configure(void)
 
 esp_err_t imu_init(void)
 {
-    i2c_master_bus_config_t bc = {
-        .i2c_port = -1,                        // auto-select a free port
-        .sda_io_num = PIN_I2C_SDA,
-        .scl_io_num = PIN_I2C_SCL,
-        .clk_source = I2C_CLK_SRC_DEFAULT,
-        .glitch_ignore_cnt = 7,
-    };
-    bc.flags.enable_internal_pullup = true;    // R11/R12 do the real pull-up on-board
-    esp_err_t err = i2c_new_master_bus(&bc, &s_bus);
+    esp_err_t err = i2cbus_init();
     if (err != ESP_OK) return err;
 
     i2c_device_config_t dc = {
@@ -82,7 +74,7 @@ esp_err_t imu_init(void)
         .device_address = LSM_ADDR,
         .scl_speed_hz = 400000,
     };
-    err = i2c_master_bus_add_device(s_bus, &dc, &s_dev);
+    err = i2c_master_bus_add_device(i2cbus_handle(), &dc, &s_dev);
     if (err != ESP_OK) return err;
 
     uint8_t who = 0;
