@@ -6,6 +6,7 @@
 
 #include "buzzer.h"
 #include "board.h"
+#include "config.h"
 
 #include "driver/ledc.h"
 #include "freertos/FreeRTOS.h"
@@ -88,6 +89,7 @@ esp_err_t buzzer_init(void)
 
 void buzzer_pattern(uint16_t freq, uint16_t on_ms, uint16_t off_ms, uint8_t count)
 {
+    if (!g_cfg.buzzer_enable) return;
     beep_t b = { .freq = freq, .on_ms = on_ms, .off_ms = off_ms, .count = count };
     if (s_q) xQueueSend(s_q, &b, 0);     // drop if queue full (non-blocking)
 }

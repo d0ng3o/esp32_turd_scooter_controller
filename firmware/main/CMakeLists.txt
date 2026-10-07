@@ -8,6 +8,8 @@ idf_component_register(
         "bus.c"
         "inputs.c"
         "control.c"
+        "gesture.c"
+        "security.c"
         "buzzer.c"
         "status_led.c"
     INCLUDE_DIRS "."

@@ -6,6 +6,7 @@
 
 #include "status_led.h"
 #include "board.h"
+#include "config.h"
 
 #include "led_strip.h"
 #include "esp_log.h"
@@ -41,7 +42,8 @@ esp_err_t status_led_init(void)
 static void set_rgb(uint8_t r, uint8_t g, uint8_t b)
 {
     if (!s_strip) return;
-    led_strip_set_pixel(s_strip, 0, r, g, b);
+    uint16_t br = g_cfg.led_brightness;                 // scale by config
+    led_strip_set_pixel(s_strip, 0, r * br / 255, g * br / 255, b * br / 255);
     led_strip_refresh(s_strip);
 }
 
@@ -51,11 +53,12 @@ void status_led_state(ride_state_t state)
     s_last = (int)state;
 
     switch (state) {
-        case RIDE_FAULT:   set_rgb(40, 0, 0);   break;  // red
-        case RIDE_IDLE:    set_rgb(0, 0, 25);   break;  // dim blue
-        case RIDE_READY:   set_rgb(0, 30, 6);   break;  // teal-green
-        case RIDE_RIDING:  set_rgb(0, 40, 0);   break;  // green
-        case RIDE_BRAKING: set_rgb(45, 20, 0);  break;  // amber
-        default:           set_rgb(10, 10, 10); break;
+        case RIDE_FAULT:   set_rgb(255,   0,   0); break;  // red
+        case RIDE_LOCKED:  set_rgb(160,   0, 160); break;  // purple
+        case RIDE_IDLE:    set_rgb(  0,   0, 160); break;  // blue
+        case RIDE_READY:   set_rgb(  0, 180,  40); break;  // teal-green
+        case RIDE_RIDING:  set_rgb(  0, 255,   0); break;  // green
+        case RIDE_BRAKING: set_rgb(255, 120,   0); break;  // amber
+        default:           set_rgb( 80,  80,  80); break;
     }
 }

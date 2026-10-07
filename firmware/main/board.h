@@ -50,3 +50,13 @@
 
 // ---- Control ----------------------------------------------------------------
 #define THROTTLE_CMD_MAX  255            // cap sent to controller (0..255)
+
+// ---- Gestures (percent of throttle travel; evaluated only while stationary) --
+// Unlock/lock toggle: hold brake + blip the throttle GEST_TRIPLE_COUNT times.
+#define GEST_BLIP_HIGH_PCT     60        // throttle must exceed this to start a blip
+#define GEST_BLIP_LOW_PCT      10        // ...then drop below this to complete it
+#define GEST_TRIPLE_COUNT       3
+#define GEST_TRIPLE_WINDOW_MS  3000      // all blips must land within this window
+// Config/OTA mode: hold brake + full throttle continuously for this long.
+#define GEST_CONFIG_HIGH_PCT   90
+#define GEST_CONFIG_HOLD_MS   20000      // 20 s (deliberately awkward)
