@@ -15,14 +15,17 @@ idf_component_register(
         "display.c"
         "power.c"
         "netcfg.c"
+        "sercon.c"
         "buzzer.c"
         "status_led.c"
     INCLUDE_DIRS "."
     REQUIRES
         driver              # gpio, uart, ledc
         esp_driver_i2c      # i2c_master (IMU + OLED)
+        esp_driver_usb_serial_jtag  # USB console REPL
         esp_adc             # adc_oneshot (throttle/brake/pack)
         esp_lcd             # OLED panel IO
+        console             # serial command console (esp_console API)
         nvs_flash           # config store
         esp_timer           # timestamps
         esp_hw_support      # esp_sleep (deep sleep)

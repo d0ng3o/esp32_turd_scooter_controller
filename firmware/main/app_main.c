@@ -19,6 +19,7 @@
 #include "power.h"
 #include "netcfg.h"
 #include "display.h"
+#include "sercon.h"
 #include "buzzer.h"
 #include "status_led.h"
 
@@ -138,4 +139,7 @@ void app_main(void)
 
     // Real-time ride loop at high priority (single core, so priority is the lever).
     xTaskCreate(ride_task, "ride", 4096, NULL, 10, NULL);
+
+    // Interactive USB-serial console (config/calibration/status), low priority.
+    sercon_init();
 }
