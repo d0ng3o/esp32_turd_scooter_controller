@@ -41,21 +41,69 @@ firmware/
     └── app_main.c     init + real-time ride loop
 ```
 
-## Build / flash
+## Building (manual, from scratch)
 
-```bash
-# one-time, in your ESP-IDF v5.2+ environment:
-cd firmware
-idf.py set-target esp32c3
-idf.py build
+Built and verified with **ESP-IDF v5.4** (v5.2+ should work). The only external
+dependency is the managed component `espressif/led_strip`, fetched automatically
+on the first build.
 
-# flash + monitor over the XIAO's USB-C (native USB-Serial-JTAG):
-idf.py -p <PORT> flash monitor
+### 1. Install ESP-IDF (one-time)
+
+**Windows** (PowerShell):
+```powershell
+git clone -b release/v5.4 --recursive https://github.com/espressif/esp-idf.git "$env:USERPROFILE\esp\esp-idf"
+& "$env:USERPROFILE\esp\esp-idf\install.ps1" esp32c3
 ```
 
-The managed `espressif/led_strip` component downloads automatically on first
-build. Console/log is on USB-Serial-JTAG, so **UART1 (GPIO20/21) is fully free
-for the bus** and flashing never fights the motor link.
+**Linux / macOS**:
+```bash
+git clone -b release/v5.4 --recursive https://github.com/espressif/esp-idf.git ~/esp/esp-idf
+~/esp/esp-idf/install.sh esp32c3
+```
+
+(Alternatively use the official VS Code **ESP-IDF extension** or the Windows
+installer — both wrap the same steps.)
+
+### 2. Export the environment (each new shell)
+
+This sets `IDF_PATH` and puts `idf.py` + the RISC-V toolchain on `PATH`. It does
+**not** persist, so run it in every new terminal:
+
+- **Windows** (PowerShell): `. "$env:USERPROFILE\esp\esp-idf\export.ps1"`
+- **Linux / macOS**: `. ~/esp/esp-idf/export.sh`
+
+### 3. Build
+
+```bash
+cd firmware
+idf.py set-target esp32c3     # first time only (creates sdkconfig from sdkconfig.defaults)
+idf.py build
+```
+
+The first build compiles all of ESP-IDF (several minutes); later builds are
+incremental. Output: `build/turd_scooter_fw.bin` (~243 KB).
+
+One-liner for a fresh Windows shell:
+```powershell
+. "$env:USERPROFILE\esp\esp-idf\export.ps1"; cd firmware; idf.py build
+```
+
+### 4. Flash & monitor
+
+Connect the XIAO over USB-C (native USB-Serial-JTAG), then:
+```bash
+idf.py -p <PORT> flash monitor      # e.g. -p COM7 (Windows) or -p /dev/ttyACM0 (Linux)
+```
+Exit the monitor with **Ctrl-]**. Console/log runs on USB-Serial-JTAG, so
+**UART1 (GPIO20/21) stays free for the motor bus** and flashing never fights the
+bus link.
+
+### Housekeeping
+
+- `idf.py fullclean` — wipe `build/`.
+- `idf.py menuconfig` — edit settings interactively (defaults come from
+  `sdkconfig.defaults`; the generated `sdkconfig` and `build/` are git-ignored).
+- `idf.py size` — flash/RAM usage breakdown.
 
 ## Pin map (XIAO silk → GPIO)
 
