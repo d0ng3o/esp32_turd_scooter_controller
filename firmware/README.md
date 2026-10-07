@@ -1,5 +1,7 @@
 # Scooter controller firmware (ESP-IDF)
 
+[![firmware build](https://github.com/d0ng3o/esp32_turd_scooter_controller/actions/workflows/firmware.yml/badge.svg)](https://github.com/d0ng3o/esp32_turd_scooter_controller/actions/workflows/firmware.yml)
+
 Firmware for the on-board **Seeed XIAO ESP32-C3 (U3)**. It reads the rider's
 throttle and brake, drives the Lishui motor controller over the scooter's
 one-wire bus (see [`../PROTOCOL.md`](../PROTOCOL.md)), and enforces the safety
@@ -136,9 +138,39 @@ bus link.
    IDLE (blue), and with a simulated moving `speed>0` from the fake controller,
    release-then-apply throttle → RIDING (green); brake → BRAKING (amber), throttle 0.
 
-## Calibration (placeholder)
+## Configuration
 
-Throttle/brake endpoints in `board.h` (`*_RAW_MIN/MAX`) are placeholders until the
-real harness is on the bench. A runtime calibration routine + NVS storage is a
-planned later phase; for now, measure the released/full raw ADC values from the
-monitor and set them in `board.h`.
+Every tunable lives in the NVS config store and can be changed two ways, with no
+rebuild — over the USB serial console, or the WiFi web portal. See the full
+hardware bring-up steps in [BRINGUP.md](BRINGUP.md).
+
+### USB serial console
+
+Open the USB-Serial-JTAG port (`idf.py -p <PORT> monitor`, or any 115200 serial
+terminal) and type at the `scooter>` prompt:
+
+| Command | Description |
+|---|---|
+| `help` | list commands |
+| `get` | print the full config as JSON |
+| `set <key> <value>` | change one setting + save to NVS (e.g. `set throttle_cap 220`, `set headlight_mode 1`, `set ap_ssid myscooter`) |
+| `status` | live telemetry: link / lock / speed / SoC / current / pack V |
+| `cal start` … `cal apply` | guided calibration (`cal show` to watch, `cal cancel` to abort) |
+| `wifi on` / `wifi off` | start/stop the config + OTA WiFi portal |
+| `defaults` | reset config to defaults |
+| `reboot` | restart |
+
+Keys are the JSON field names printed by `get`.
+
+### WiFi web portal (+ OTA)
+
+Hold **brake + full throttle for 20 s** while stopped to bring up the SoftAP
+(`ap_ssid`, default `turd-scooter`) at **192.168.4.1**. The page offers the same
+settings as a form, a live status readout, the guided calibration, and **OTA**
+firmware upload. It auto-exits after `config_timeout_s`.
+
+### Calibration
+
+Throttle/brake endpoints ship as placeholders in `board.h` until the real harness
+is on the bench. Run `cal start` (console or web) → move both controls through
+their full travel → `cal apply` to capture and save the real min/max.
