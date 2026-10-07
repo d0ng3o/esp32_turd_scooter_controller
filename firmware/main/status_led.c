@@ -47,6 +47,12 @@ static void set_rgb(uint8_t r, uint8_t g, uint8_t b)
     led_strip_refresh(s_strip);
 }
 
+void status_led_rgb(uint8_t r, uint8_t g, uint8_t b)
+{
+    s_last = -1;              // force a refresh on the next status_led_state()
+    set_rgb(r, g, b);
+}
+
 void status_led_state(ride_state_t state)
 {
     if ((int)state == s_last) return;

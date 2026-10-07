@@ -1,0 +1,86 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Turd Scooter Config</title>
+<style>
+ body{font-family:system-ui,sans-serif;margin:0;background:#f1efe9;color:#232323}
+ header{background:#6b4423;color:#fff;padding:12px 16px;font-weight:700}
+ .wrap{max-width:640px;margin:0 auto;padding:16px}
+ .status{font-size:13px;color:#555;margin:8px 0;min-height:1.2em}
+ fieldset{background:#fff;border:1px solid #ddd;border-radius:8px;margin:12px 0;padding:8px 12px}
+ legend{font-weight:700;padding:0 6px}
+ label{display:flex;justify-content:space-between;align-items:center;margin:6px 0;gap:10px}
+ input,select{padding:6px;border:1px solid #ccc;border-radius:4px;font-size:14px}
+ input[type=number]{width:120px}input[type=text]{width:160px}
+ button{background:#6b4423;color:#fff;border:0;border-radius:6px;padding:10px 16px;font-size:15px;cursor:pointer;margin:4px 0}
+ button.sec{background:#888}
+ progress{width:100%}
+</style>
+</head>
+<body>
+<header>💩 Turd Scooter — Config &amp; OTA</header>
+<div class="wrap">
+ <div class="status" id="st">loading…</div>
+ <form id="cfg"></form>
+ <button type="button" onclick="save()">Save settings</button>
+ <fieldset><legend>Firmware update (OTA)</legend>
+  <input type="file" id="fw" accept=".bin">
+  <button type="button" onclick="ota()">Upload &amp; flash</button>
+  <progress id="pg" value="0" max="100" hidden></progress>
+  <div class="status" id="otamsg"></div>
+ </fieldset>
+ <button type="button" class="sec" onclick="reboot()">Reboot</button>
+</div>
+<script>
+const S=[
+ ['Calibration',[['thr_raw_min','Throttle raw min','n'],['thr_raw_max','Throttle raw max','n'],
+  ['brk_raw_min','Brake raw min','n'],['brk_raw_max','Brake raw max','n'],
+  ['thr_deadzone_pct','Throttle deadzone %','n'],['brk_active_pct','Brake on %','n']]],
+ ['Ride feel',[['throttle_cap','Throttle cap 0-255','n'],['soft_start_ms','Soft-start ms','n'],
+  ['throttle_curve','Throttle curve',['Linear','Progressive']],['kick_to_start','Kick to start','b']]],
+ ['Lock & security',[['auto_lock_timeout_s','Auto-lock idle s','n'],['motion_alarm','Motion alarm','b'],
+  ['auto_sleep_timeout_s','Deep-sleep idle s','n']]],
+ ['Lights',[['headlight_mode','Headlight',['Auto','On','Off','Manual']],
+  ['brakelight_mode','Brake light',['Steady','Strobe tail','Status LED']],
+  ['headlight_off_delay_ms','Headlight off delay ms','n']]],
+ ['IMU & feedback',[['imu_wake_sens','IMU wake sens 0-63','n'],['buzzer_enable','Buzzer','b'],
+  ['led_brightness','LED brightness 0-255','n']]],
+ ['WiFi',[['ap_ssid','AP SSID','s'],['ap_pass','AP password (8+)','s'],['config_timeout_s','Config timeout s','n']]],
+ ['System',[['units','Units',['km/h','mph']]]],
+];
+function build(){const f=document.getElementById('cfg');f.innerHTML='';
+ for(const[grp,items]of S){const fs=document.createElement('fieldset');
+  fs.innerHTML='<legend>'+grp+'</legend>';
+  for(const[k,lab,t]of items){const l=document.createElement('label');l.append(lab);let e;
+   if(t==='b'){e=document.createElement('input');e.type='checkbox';}
+   else if(Array.isArray(t)){e=document.createElement('select');t.forEach((o,i)=>{const op=document.createElement('option');op.value=i;op.text=o;e.append(op);});}
+   else if(t==='s'){e=document.createElement('input');e.type='text';}
+   else{e=document.createElement('input');e.type='number';}
+   e.id='f_'+k;l.append(e);fs.append(l);}
+  f.append(fs);}}
+function fill(c){for(const[,items]of S)for(const[k,,t]of items){const e=document.getElementById('f_'+k);
+  if(!e||!(k in c))continue;if(t==='b')e.checked=!!c[k];else e.value=c[k];}}
+function collect(){const o={};for(const[,items]of S)for(const[k,,t]of items){const e=document.getElementById('f_'+k);
+  if(t==='b')o[k]=e.checked;else if(t==='s')o[k]=e.value;else o[k]=parseInt(e.value);}return o;}
+async function load(){try{const c=await(await fetch('/api/config')).json();build();fill(c);}
+  catch(e){document.getElementById('st').textContent='config load failed';}poll();}
+async function save(){try{const r=await fetch('/api/config',{method:'POST',body:JSON.stringify(collect())});
+  document.getElementById('st').textContent=r.ok?'saved ✓':'save failed';}catch(e){document.getElementById('st').textContent='save error';}}
+async function poll(){try{const s=await(await fetch('/api/status')).json();
+  document.getElementById('st').textContent='link '+(s.link?'up':'down')+' · '+(s.locked?'LOCKED':'unlocked')+
+   ' · speed '+s.speed+' · SoC '+s.soc+'% · '+(s.current_cA/100).toFixed(2)+' A';}catch(e){}
+  setTimeout(poll,2000);}
+function ota(){const f=document.getElementById('fw').files[0];if(!f){document.getElementById('otamsg').textContent='pick a .bin first';return;}
+  const pg=document.getElementById('pg');pg.hidden=false;const m=document.getElementById('otamsg');m.textContent='uploading…';
+  const x=new XMLHttpRequest();x.open('POST','/api/ota');
+  x.upload.onprogress=e=>{if(e.lengthComputable)pg.value=100*e.loaded/e.total;};
+  x.onload=()=>{m.textContent=x.status===200?'flashed ✓ — rebooting':'OTA failed ('+x.status+')';};
+  x.onerror=()=>m.textContent='upload error';x.send(f);}
+async function reboot(){try{await fetch('/api/reboot',{method:'POST'});}catch(e){}
+  document.getElementById('st').textContent='rebooting…';}
+load();
+</script>
+</body>
+</html>

@@ -12,6 +12,7 @@ idf_component_register(
         "security.c"
         "imu.c"
         "power.c"
+        "netcfg.c"
         "buzzer.c"
         "status_led.c"
     INCLUDE_DIRS "."
@@ -22,5 +23,12 @@ idf_component_register(
         nvs_flash           # config store
         esp_timer           # timestamps
         esp_hw_support      # esp_sleep (deep sleep)
+        esp_wifi            # SoftAP
+        esp_netif           # AP netif
+        esp_event           # wifi event loop
+        esp_http_server     # config/OTA web server
+        app_update          # OTA (esp_ota_ops)
+        json                # cJSON (config serialisation)
+    EMBED_TXTFILES "web/index.html"
     # espressif/led_strip is pulled in automatically via idf_component.yml
 )

@@ -8,6 +8,7 @@
 #include "nvs.h"
 #include "nvs_flash.h"
 #include "esp_log.h"
+#include "cJSON.h"
 
 static const char *TAG = "cfg";
 
@@ -101,4 +102,90 @@ esp_err_t config_save(void)
     if (err == ESP_OK) err = nvs_commit(h);
     nvs_close(h);
     return err;
+}
+
+char *config_to_json(void)
+{
+    cJSON *r = cJSON_CreateObject();
+    if (!r) return NULL;
+    cJSON_AddNumberToObject(r, "thr_raw_min", g_cfg.thr_raw_min);
+    cJSON_AddNumberToObject(r, "thr_raw_max", g_cfg.thr_raw_max);
+    cJSON_AddNumberToObject(r, "brk_raw_min", g_cfg.brk_raw_min);
+    cJSON_AddNumberToObject(r, "brk_raw_max", g_cfg.brk_raw_max);
+    cJSON_AddNumberToObject(r, "thr_deadzone_pct", g_cfg.thr_deadzone_pct);
+    cJSON_AddNumberToObject(r, "brk_active_pct", g_cfg.brk_active_pct);
+    cJSON_AddNumberToObject(r, "throttle_cap", g_cfg.throttle_cap);
+    cJSON_AddNumberToObject(r, "soft_start_ms", g_cfg.soft_start_ms);
+    cJSON_AddNumberToObject(r, "throttle_curve", g_cfg.throttle_curve);
+    cJSON_AddBoolToObject(r, "kick_to_start", g_cfg.kick_to_start);
+    cJSON_AddNumberToObject(r, "auto_lock_timeout_s", g_cfg.auto_lock_timeout_s);
+    cJSON_AddBoolToObject(r, "motion_alarm", g_cfg.motion_alarm);
+    cJSON_AddNumberToObject(r, "auto_sleep_timeout_s", g_cfg.auto_sleep_timeout_s);
+    cJSON_AddNumberToObject(r, "headlight_mode", g_cfg.headlight_mode);
+    cJSON_AddNumberToObject(r, "brakelight_mode", g_cfg.brakelight_mode);
+    cJSON_AddNumberToObject(r, "headlight_off_delay_ms", g_cfg.headlight_off_delay_ms);
+    cJSON_AddNumberToObject(r, "imu_wake_sens", g_cfg.imu_wake_sens);
+    cJSON_AddBoolToObject(r, "buzzer_enable", g_cfg.buzzer_enable);
+    cJSON_AddNumberToObject(r, "led_brightness", g_cfg.led_brightness);
+    cJSON_AddStringToObject(r, "ap_ssid", g_cfg.ap_ssid);
+    cJSON_AddStringToObject(r, "ap_pass", g_cfg.ap_pass);
+    cJSON_AddNumberToObject(r, "config_timeout_s", g_cfg.config_timeout_s);
+    cJSON_AddNumberToObject(r, "units", g_cfg.units);
+    char *s = cJSON_PrintUnformatted(r);
+    cJSON_Delete(r);
+    return s;
+}
+
+bool config_from_json(const char *json, int len)
+{
+    cJSON *r = cJSON_ParseWithLength(json, len);
+    if (!r) return false;
+
+#define GN(key, field, lo, hi) do { \
+        cJSON *_i = cJSON_GetObjectItemCaseSensitive(r, key); \
+        if (cJSON_IsNumber(_i)) { \
+            int _v = _i->valueint; \
+            g_cfg.field = _v < (lo) ? (lo) : (_v > (hi) ? (hi) : _v); \
+        } \
+    } while (0)
+#define GB(key, field) do { \
+        cJSON *_i = cJSON_GetObjectItemCaseSensitive(r, key); \
+        if (cJSON_IsBool(_i)) g_cfg.field = cJSON_IsTrue(_i); \
+    } while (0)
+#define GS(key, field) do { \
+        cJSON *_i = cJSON_GetObjectItemCaseSensitive(r, key); \
+        if (cJSON_IsString(_i) && _i->valuestring) { \
+            strncpy(g_cfg.field, _i->valuestring, sizeof(g_cfg.field) - 1); \
+            g_cfg.field[sizeof(g_cfg.field) - 1] = 0; } \
+    } while (0)
+
+    GN("thr_raw_min", thr_raw_min, 0, 4095);
+    GN("thr_raw_max", thr_raw_max, 0, 4095);
+    GN("brk_raw_min", brk_raw_min, 0, 4095);
+    GN("brk_raw_max", brk_raw_max, 0, 4095);
+    GN("thr_deadzone_pct", thr_deadzone_pct, 0, 90);
+    GN("brk_active_pct", brk_active_pct, 1, 99);
+    GN("throttle_cap", throttle_cap, 0, 255);
+    GN("soft_start_ms", soft_start_ms, 0, 5000);
+    GN("throttle_curve", throttle_curve, 0, 1);
+    GB("kick_to_start", kick_to_start);
+    GN("auto_lock_timeout_s", auto_lock_timeout_s, 0, 3600);
+    GB("motion_alarm", motion_alarm);
+    GN("auto_sleep_timeout_s", auto_sleep_timeout_s, 0, 7200);
+    GN("headlight_mode", headlight_mode, 0, 3);
+    GN("brakelight_mode", brakelight_mode, 0, 2);
+    GN("headlight_off_delay_ms", headlight_off_delay_ms, 0, 5000);
+    GN("imu_wake_sens", imu_wake_sens, 0, 63);
+    GB("buzzer_enable", buzzer_enable);
+    GN("led_brightness", led_brightness, 0, 255);
+    GS("ap_ssid", ap_ssid);
+    GS("ap_pass", ap_pass);
+    GN("config_timeout_s", config_timeout_s, 30, 3600);
+    GN("units", units, 0, 1);
+
+#undef GN
+#undef GB
+#undef GS
+    cJSON_Delete(r);
+    return config_save() == ESP_OK;
 }

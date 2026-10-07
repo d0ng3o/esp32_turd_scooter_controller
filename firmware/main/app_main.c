@@ -17,6 +17,7 @@
 #include "security.h"
 #include "imu.h"
 #include "power.h"
+#include "netcfg.h"
 #include "buzzer.h"
 #include "status_led.h"
 
@@ -25,16 +26,6 @@
 #include "esp_log.h"
 
 static const char *TAG = "app";
-
-// Entered by the brake+full-throttle-20s gesture. The WiFi/web/OTA phase will
-// replace this stub with the real SoftAP + config portal + OTA flow.
-static void enter_config_mode(void)
-{
-    ESP_LOGW(TAG, "config/OTA mode requested (WiFi phase not yet implemented)");
-    buzzer_pattern(2200, 100, 80, 3);
-    // TODO(wifi phase): start SoftAP + HTTP config UI + OTA; suspend ride loop
-    // (throttle inhibited) while active; exit on timeout or gesture.
-}
 
 static void ride_task(void *arg)
 {
@@ -62,11 +53,15 @@ static void ride_task(void *arg)
 
         gesture_event_t g = gesture_update(&in, stationary);
         if (g == GESTURE_CONFIG) {
-            enter_config_mode();
+            netcfg_start();      // WiFi SoftAP + config/OTA portal
         }
+        netcfg_tick();           // auto-exit config mode on inactivity
+        bool config_active = netcfg_is_active();
+
         bool locked = security_update(g, active, imu_mot);
 
-        control_out_t out = control_step(&in, &telem, link, locked);
+        // Throttle is inhibited while the config portal is open.
+        control_out_t out = control_step(&in, &telem, link, locked || config_active);
 
         // Status requested on every 5th poll: N N N N S (PROTOCOL.md 5.2).
         bool want_status = (n % STATUS_EVERY_N) == 0;
@@ -74,7 +69,11 @@ static void ride_task(void *arg)
         // Sends the poll AND paces this loop to ~POLL_PERIOD_MS while it pumps RX.
         bus_poll_once(out.throttle, out.headlight, out.tail_on, want_status);
 
-        status_led_state(out.state);
+        if (config_active) {
+            status_led_rgb(0, 90, 90);          // cyan = config/OTA mode
+        } else {
+            status_led_state(out.state);
+        }
 
         // Chirp once on entering a fault (link lost).
         if (out.state == RIDE_FAULT && last_state != RIDE_FAULT) {
@@ -83,9 +82,9 @@ static void ride_task(void *arg)
         }
         last_state = out.state;
 
-        // Stage-2 idle: deep sleep after the long idle timeout (does not return
-        // if it sleeps; the IMU wakes it and the chip reboots locked).
-        power_update(active);
+        // Stage-2 idle: deep sleep after the long idle timeout. Never sleep while
+        // the config portal is open. Does not return if it sleeps (IMU wakes it).
+        power_update(active || config_active);
     }
 }
 

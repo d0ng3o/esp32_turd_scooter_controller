@@ -86,3 +86,10 @@ esp_err_t config_save(void);
 
 // Populate *c with compiled-in defaults (see board.h).
 void config_set_defaults(config_t *c);
+
+// Serialise g_cfg to a malloc'd JSON string (caller frees). NULL on error.
+char *config_to_json(void);
+
+// Merge a (possibly partial) JSON object into g_cfg with range clamping and
+// save to NVS. Returns true on success.
+bool config_from_json(const char *json, int len);
