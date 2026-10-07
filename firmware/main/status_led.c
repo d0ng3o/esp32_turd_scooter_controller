@@ -19,11 +19,11 @@ static int s_last = -1;
 esp_err_t status_led_init(void)
 {
     const led_strip_config_t strip_cfg = {
-        .strip_gpio_num = PIN_WS2812,
-        .max_leds       = 1,
-        .led_model      = LED_MODEL_WS2812,
-        .color_component_format = LED_STRIP_COLOR_COMPONENT_FMT_GRB,
-        .flags = { .invert_out = false },
+        .strip_gpio_num   = PIN_WS2812,
+        .max_leds         = 1,
+        .led_pixel_format = LED_PIXEL_FORMAT_GRB,   // led_strip 2.5.x API
+        .led_model        = LED_MODEL_WS2812,
+        .flags            = { .invert_out = false },
     };
     const led_strip_rmt_config_t rmt_cfg = {
         .clk_src       = RMT_CLK_SRC_DEFAULT,
