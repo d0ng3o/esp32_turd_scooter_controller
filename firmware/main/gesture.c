@@ -76,3 +76,10 @@ gesture_event_t gesture_update(const inputs_t *in, bool stationary)
 
     return ev;
 }
+
+void gesture_get_dbg(gesture_dbg_t *d)
+{
+    d->blips          = s_blips;
+    d->in_high        = s_in_high;
+    d->config_holding = (s_config_start != 0);
+}

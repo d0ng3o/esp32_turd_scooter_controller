@@ -14,7 +14,7 @@
 #include "esp_err.h"
 
 #define CONFIG_MAGIC    0x54555244u   // 'TURD'
-#define CONFIG_VERSION  2
+#define CONFIG_VERSION  3
 
 typedef enum {
     HEADLIGHT_AUTO = 0,   // on while moving (original behaviour)
@@ -70,6 +70,11 @@ typedef struct {
     char     ap_ssid[32];
     char     ap_pass[64];           // >= 8 chars for WPA2
     uint16_t config_timeout_s;      // auto-exit config mode after inactivity
+
+    // --- pack voltage calibration (two-point line: ADC node mV -> pack mV) ---
+    uint16_t pack_cal_zero_mv;      // node mV with the ESC disconnected (offset)
+    uint16_t pack_cal_ref_node_mv;  // node mV at the span reference point
+    uint32_t pack_cal_ref_pack_mv;  // measured pack mV at that point (0 = uncalibrated)
 
     // --- system ---
     uint8_t  units;                 // units_t

@@ -128,6 +128,9 @@ char *config_to_json(void)
     cJSON_AddStringToObject(r, "ap_ssid", g_cfg.ap_ssid);
     cJSON_AddStringToObject(r, "ap_pass", g_cfg.ap_pass);
     cJSON_AddNumberToObject(r, "config_timeout_s", g_cfg.config_timeout_s);
+    cJSON_AddNumberToObject(r, "pack_cal_zero_mv", g_cfg.pack_cal_zero_mv);
+    cJSON_AddNumberToObject(r, "pack_cal_ref_node_mv", g_cfg.pack_cal_ref_node_mv);
+    cJSON_AddNumberToObject(r, "pack_cal_ref_pack_mv", g_cfg.pack_cal_ref_pack_mv);
     cJSON_AddNumberToObject(r, "units", g_cfg.units);
     char *s = cJSON_PrintUnformatted(r);
     cJSON_Delete(r);
@@ -178,6 +181,9 @@ bool config_from_json(const char *json, int len)
     GS("ap_ssid", ap_ssid);
     GS("ap_pass", ap_pass);
     GN("config_timeout_s", config_timeout_s, 30, 3600);
+    GN("pack_cal_zero_mv", pack_cal_zero_mv, 0, 4000);
+    GN("pack_cal_ref_node_mv", pack_cal_ref_node_mv, 0, 4000);
+    GN("pack_cal_ref_pack_mv", pack_cal_ref_pack_mv, 0, 120000);
     GN("units", units, 0, 1);
 
 #undef GN

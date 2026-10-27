@@ -20,3 +20,12 @@ void gesture_init(void);
 // completed this cycle, or GESTURE_NONE. `stationary` must be true for any
 // gesture to be recognised.
 gesture_event_t gesture_update(const inputs_t *in, bool stationary);
+
+// Live recogniser state, for the serial monitor (`mon` console command).
+typedef struct {
+    int  blips;             // throttle blips counted so far (0..GEST_TRIPLE_COUNT)
+    bool in_high;           // currently above the blip-high threshold
+    bool config_holding;    // brake+full-throttle hold timer running
+} gesture_dbg_t;
+
+void gesture_get_dbg(gesture_dbg_t *d);

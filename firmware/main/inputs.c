@@ -24,9 +24,11 @@ static adc_oneshot_unit_handle_t s_adc2;      // pack sense (GPIO5)
 static adc_cali_handle_t         s_pack_cali; // NULL -> fall back to rough scaling
 static bool     s_pack_ready;
 static uint32_t s_pack_mv;
+static uint32_t s_pack_node_mv;               // last ADC node voltage (pre-divider)
 static int s_thr_ema = -1;     // -1 = uninitialised
 static int s_brk_ema = -1;
 static int s_last_thr_raw, s_last_brk_raw;
+static inputs_t s_last_in;     // last full sample, for inputs_last()
 
 // Guided calibration capture.
 static bool s_cal_active;
@@ -104,6 +106,24 @@ esp_err_t inputs_init(void)
     return ESP_OK;
 }
 
+// Scale an ADC node voltage (mV) to pack voltage (mV). Uses the two-point
+// calibration (zero offset + measured span point) when one has been captured;
+// otherwise falls back to the nominal resistor-divider ratio.
+static void apply_pack_scale(int node_mv)
+{
+    s_pack_node_mv = (uint32_t)(node_mv < 0 ? 0 : node_mv);
+
+    if (g_cfg.pack_cal_ref_node_mv > g_cfg.pack_cal_zero_mv &&
+        g_cfg.pack_cal_ref_pack_mv > 0) {
+        int span = g_cfg.pack_cal_ref_node_mv - g_cfg.pack_cal_zero_mv;
+        int rel  = node_mv - (int)g_cfg.pack_cal_zero_mv;
+        if (rel < 0) rel = 0;
+        s_pack_mv = (uint32_t)((int64_t)rel * g_cfg.pack_cal_ref_pack_mv / span);
+    } else {
+        s_pack_mv = (uint32_t)node_mv * (PACK_DIV_R_TOP + PACK_DIV_R_BOT) / PACK_DIV_R_BOT;
+    }
+}
+
 void inputs_sample_pack(bool allowed)
 {
     if (!allowed || !s_pack_ready) return;
@@ -116,7 +136,14 @@ void inputs_sample_pack(bool allowed)
     } else {
         node_mv = raw * 3100 / 4095;   // rough (12 dB full-scale ~3.1 V)
     }
-    s_pack_mv = (uint32_t)node_mv * (PACK_DIV_R_TOP + PACK_DIV_R_BOT) / PACK_DIV_R_BOT;
+    apply_pack_scale(node_mv);
+}
+
+// Re-apply the pack scaling to the last-read node voltage (used right after a
+// `pack cal` change, so the reported voltage updates without touching the ADC).
+void inputs_recompute_pack(void)
+{
+    apply_pack_scale((int)s_pack_node_mv);
 }
 
 uint32_t inputs_pack_mv(void)
@@ -124,8 +151,15 @@ uint32_t inputs_pack_mv(void)
     return s_pack_mv;
 }
 
+uint32_t inputs_pack_node_mv(void)
+{
+    return s_pack_node_mv;
+}
+
 int inputs_thr_raw(void) { return s_last_thr_raw; }
 int inputs_brk_raw(void) { return s_last_brk_raw; }
+
+void inputs_last(inputs_t *out) { *out = s_last_in; }
 
 void inputs_cal_start(void)
 {
@@ -169,4 +203,6 @@ void inputs_sample(inputs_t *out)
                   ? (brk - g_cfg.brk_raw_min) * 100 / (g_cfg.brk_raw_max - g_cfg.brk_raw_min)
                   : 0;
     out->brake_active = brk_pct >= g_cfg.brk_active_pct;
+
+    s_last_in = *out;
 }

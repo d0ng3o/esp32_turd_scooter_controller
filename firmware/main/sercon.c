@@ -10,6 +10,8 @@
 #include "sercon.h"
 #include "config.h"
 #include "inputs.h"
+#include "gesture.h"
+#include "board.h"
 #include "bus.h"
 #include "security.h"
 #include "netcfg.h"
@@ -146,6 +148,109 @@ static int cmd_gpio(int argc, char **argv)
     return 0;
 }
 
+static int cmd_pack(int argc, char **argv)
+{
+    // Two-point pack-voltage calibration against a multimeter:
+    //   1) disconnect the ESC (0 V at the divider), wait ~2 s, `pack cal zero`
+    //   2) reconnect, measure the pack with a DMM, `pack cal span <volts>`
+    // Readings come from the ride loop's ~1 Hz ADC sample (cached), so give it a
+    // couple of seconds to settle after (dis)connecting before capturing.
+    if (argc >= 2 && !strcmp(argv[1], "cal")) {
+        const char *sub = (argc > 2) ? argv[2] : "";
+        if (!strcmp(sub, "zero")) {
+            g_cfg.pack_cal_zero_mv = (uint16_t)inputs_pack_node_mv();
+            config_save();
+            inputs_recompute_pack();
+            printf("zero set: node=%u mV at 0 V pack (disconnect the ESC for this)\n",
+                   (unsigned)g_cfg.pack_cal_zero_mv);
+            return 0;
+        }
+        if (!strcmp(sub, "span")) {
+            if (argc < 4) { printf("usage: pack cal span <actual_volts>   e.g. pack cal span 39.6\n"); return 1; }
+            double v = atof(argv[3]);
+            if (v < 1.0 || v > 120.0) { printf("implausible voltage %.2f V (expect 1..120)\n", v); return 1; }
+            uint32_t node = inputs_pack_node_mv();
+            if (node <= (uint32_t)g_cfg.pack_cal_zero_mv + 50) {
+                printf("node reads %u mV, not above the zero point (%u mV) - is the pack connected?\n",
+                       (unsigned)node, (unsigned)g_cfg.pack_cal_zero_mv);
+                return 1;
+            }
+            g_cfg.pack_cal_ref_node_mv = (uint16_t)node;
+            g_cfg.pack_cal_ref_pack_mv = (uint32_t)(v * 1000.0 + 0.5);
+            config_save();
+            inputs_recompute_pack();
+            printf("span set: node=%u mV -> %.2f V. now reading %.1f V\n",
+                   (unsigned)node, v, inputs_pack_mv() / 1000.0);
+            return 0;
+        }
+        if (!strcmp(sub, "clear")) {
+            g_cfg.pack_cal_zero_mv     = 0;
+            g_cfg.pack_cal_ref_node_mv = 0;
+            g_cfg.pack_cal_ref_pack_mv = 0;
+            config_save();
+            inputs_recompute_pack();
+            printf("pack cal cleared - using nominal divider %d/%d\n",
+                   PACK_DIV_R_TOP, PACK_DIV_R_BOT);
+            return 0;
+        }
+        printf("usage: pack cal zero | pack cal span <volts> | pack cal clear\n");
+        return 1;
+    }
+
+    bool cal = g_cfg.pack_cal_ref_node_mv > g_cfg.pack_cal_zero_mv &&
+               g_cfg.pack_cal_ref_pack_mv > 0;
+    printf("pack=%.1f V  node=%u mV  cal=%s\n",
+           inputs_pack_mv() / 1000.0, (unsigned)inputs_pack_node_mv(),
+           cal ? "two-point" : "divider (default)");
+    if (cal) {
+        printf("  zero=%u mV  ref: %u mV = %.2f V\n",
+               (unsigned)g_cfg.pack_cal_zero_mv, (unsigned)g_cfg.pack_cal_ref_node_mv,
+               g_cfg.pack_cal_ref_pack_mv / 1000.0);
+    }
+    printf("to calibrate: 1) disconnect ESC, wait 2s, `pack cal zero`  "
+           "2) reconnect, measure with DMM, `pack cal span <volts>`\n");
+    return 0;
+}
+
+static int cmd_mon(int argc, char **argv)
+{
+    // Live input/gesture stream to debug the unlock gesture: hold the brake and
+    // blip the throttle GEST_TRIPLE_COUNT times (>HIGH then <LOW) while stationary.
+    // Watch brk act=YES and blips tick up. Blocks the console for the duration.
+    int secs = (argc > 1) ? atoi(argv[1]) : 15;
+    if (secs < 1)   secs = 1;
+    if (secs > 120) secs = 120;
+    printf("unlock = stationary + brake held + throttle >%d%% then <%d%%, x%d within %dms\n",
+           GEST_BLIP_HIGH_PCT, GEST_BLIP_LOW_PCT, GEST_TRIPLE_COUNT, GEST_TRIPLE_WINDOW_MS);
+    printf("streaming %ds (press reset to abort)...\n", secs);
+    for (int i = 0; i < secs * 10; i++) {
+        inputs_t in;
+        inputs_last(&in);
+        telemetry_t t;
+        bus_get_telemetry(&t);
+        bool stationary = !(t.valid && t.speed > 0);
+        gesture_dbg_t g;
+        gesture_get_dbg(&g);
+        int thr_pct = in.throttle_cmd * 100 / 255;
+        int brk_pct = (g_cfg.brk_raw_max > g_cfg.brk_raw_min)
+                      ? (in.brake_raw - g_cfg.brk_raw_min) * 100 /
+                        (g_cfg.brk_raw_max - g_cfg.brk_raw_min)
+                      : 0;
+        printf("thr raw=%4d %3d%% %-5s%-5s | brk raw=%4d %3d%% act=%-3s | still=%-3s | blips=%d hi=%s%s | %s\n",
+               in.throttle_raw, thr_pct,
+               thr_pct >= GEST_BLIP_HIGH_PCT ? ">HIGH" : "",
+               thr_pct <= GEST_BLIP_LOW_PCT  ? "<LOW"  : "",
+               in.brake_raw, brk_pct, in.brake_active ? "YES" : "no",
+               stationary ? "yes" : "NO",
+               g.blips, g.in_high ? "Y" : "n",
+               g.config_holding ? " CFG-HOLD" : "",
+               security_is_locked() ? "LOCKED" : "unlocked");
+        vTaskDelay(pdMS_TO_TICKS(100));
+    }
+    printf("mon done\n");
+    return 0;
+}
+
 static int cmd_cal(int argc, char **argv)
 {
     const char *a = (argc > 1) ? argv[1] : "show";
@@ -224,6 +329,8 @@ void sercon_init(void)
         { .command = "led",      .help = "led red|green|blue|white|off|auto (holds colour)", .func = cmd_led },
         { .command = "beep",     .help = "beep [freq] | beep on [freq] | beep off",      .func = cmd_beep },
         { .command = "gpio",     .help = "gpio <num> <0|1> - raw-drive a pin (bench test)", .func = cmd_gpio },
+        { .command = "mon",      .help = "mon [secs] - live throttle/brake/gesture stream", .func = cmd_mon },
+        { .command = "pack",     .help = "pack voltage cal: pack cal zero|span <volts>|clear", .func = cmd_pack },
         { .command = "cal",      .help = "cal start|apply|cancel|show",           .func = cmd_cal },
         { .command = "wifi",     .help = "wifi on|off  (config/OTA portal)",      .func = cmd_wifi },
         { .command = "defaults", .help = "reset config to defaults",              .func = cmd_defaults },

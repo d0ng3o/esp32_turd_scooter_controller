@@ -29,9 +29,19 @@ void inputs_sample_pack(bool allowed);
 // Last cached pack voltage in millivolts (0 if never read).
 uint32_t inputs_pack_mv(void);
 
+// Last ADC node voltage (pre-divider) in millivolts, for pack calibration.
+uint32_t inputs_pack_node_mv(void);
+
+// Re-apply pack scaling to the last node reading (call after a pack_cal change).
+void inputs_recompute_pack(void);
+
 // Live filtered raw readings (for the web calibration helper).
 int inputs_thr_raw(void);
 int inputs_brk_raw(void);
+
+// Snapshot of the last inputs_sample() result (mapped cmd + brake_active), for
+// the serial monitor without the console task touching the ADC concurrently.
+void inputs_last(inputs_t *out);
 
 // Guided calibration: while active, inputs_sample() tracks the min/max raw of
 // throttle and brake as the rider sweeps them. The web UI applies the captured
