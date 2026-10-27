@@ -193,6 +193,21 @@ Notes:
    IDLE (blue), and with a simulated moving `speed>0` from the fake controller,
    release-then-apply throttle → RIDING (green); brake → BRAKING (amber), throttle 0.
 
+## Gestures
+
+The board has **no buttons** — the rider controls lock and config mode with the
+throttle and brake levers. Both gestures require the scooter to be **stopped**
+(wheel not turning) with the **brake held** the whole time; they're ignored while
+moving so they can't fire mid-ride.
+
+| Gesture | How | Effect |
+|---|---|---|
+| **Unlock / lock** | Hold the brake, then **blip the throttle 3 times** (past ~60 % then back under ~10 %) **within 3 s**. | Toggles locked ↔ unlocked. The scooter boots locked; unlock before riding. |
+| **WiFi config / OTA** | Hold the brake **and** the throttle near-full (**≥90 %**) together, continuously for **20 s**, while stopped. | Starts the WiFi SoftAP config + OTA portal (see below). Blipping resets the hold, so you must keep the throttle pinned the whole time. |
+
+The 20 s hold is intentionally awkward so the portal can't open by accident. The
+timings live in `board.h` (`GEST_*`) if you want to tune them.
+
 ## Configuration
 
 Every tunable lives in the NVS config store and can be changed two ways, with no
