@@ -96,10 +96,28 @@ also requests a status reply. **The slave only stays responsive while polled.**
         bit 3  0x08  tail light   (master keeps this set at all times)
         bit 4  0x10  request status reply this poll (set on every 5th poll)
         bit 6  0x40  headlight    (master sets it while the wheel is moving)
+
+      Bits the original board never set, but the controller DOES honor
+      (found by fuzzing the flag byte on a free-spinning wheel, 2026-09-14 —
+      re-confirm on the bench before relying on them):
+        bit 1  0x02  cut drive / coast — throttle is ignored and the motor
+                     stops driving; the wheel freewheels down to 0 even with a
+                     throttle value latched. A soft "neutral", not a brake.
+        bit 2  0x04  active (dynamic) brake — the controller actively brakes
+                     the wheel toward a stop. Dissipative, NOT regenerative:
+                     no charge returns to the pack (charge field b7 stayed 0),
+                     so the braking energy is dumped as heat in the motor
+                     windings and the controller FETs. Braking effort (and that
+                     heat) scales with speed, so a hard brake at full speed is
+                     an unmeasured thermal stress — prefer engaging it only at
+                     low speed. Works even with the charger connected.
+        bits 0x01 / 0x20 / 0x80 — swept, no observed effect.
 ```
 
-Flag byte values seen on the wire: `0x08` (normal), `0x18` (status request),
-`0x48` (headlight on), `0x58` (headlight + status request).
+Flag byte values seen on the wire from the original board: `0x08` (normal),
+`0x18` (status request), `0x48` (headlight on), `0x58` (headlight + status
+request). The brake/coast bits above are ours to command, not something the
+stock board emitted (see §6.3).
 
 Examples (throttle 0, idle):
 
@@ -306,14 +324,35 @@ release to 0 and re-assert once the wheel is moving.
 
 ### 6.3 Brake
 
-The lever is analog on the scooter but the board sends **no brake field**.
-Instead, when the brake crosses ~half travel the master forces the **throttle
-byte to 0x00** for as long as it is held. Braking is therefore "command speed
-0"; there is no separate brake signal to the controller and no brake-light
+The lever is analog on the scooter but the board sends **no brake field** — the
+brake is never explicitly signalled to the controller. Instead, when the brake
+crosses ~half travel the master forces the **throttle byte to 0x00** for as long
+as it is held, and the controller infers "brake" from the throttle going to 0.
+Braking is therefore "command speed 0": the motor simply stops driving and the
+wheel freewheels to a stop. There is no separate brake signal and no brake-light
 change on the bus (the tail light is simply always on via flag 0x08).
 
 Replicate this: read your brake input and clamp the throttle byte to 0 above
-threshold.
+threshold. This is the normal, stock braking behaviour.
+
+**Active braking (discovered, not used by the stock board).** The flag-byte
+fuzz (§3.1) found the controller *will* actively brake on command, which the
+original board never used:
+
+- **0x02** cuts drive (coast / neutral) — the motor stops propelling even if a
+  throttle value is still latched.
+- **0x04** engages an **active dynamic brake** that drives the wheel to a stop.
+  It is **dissipative, not regenerative** — no charge flows back to the pack
+  (the charge field `b7` stayed 0 throughout), so the stopping energy is
+  dissipated as heat in the motor windings and the controller's FETs. Braking
+  effort and that heat rise with speed.
+
+Safety: a hard dynamic brake at full speed is an **unmeasured** thermal stress on
+the controller and could unseat a rider, so do not slam 0x04 at speed. The safe
+pattern (e.g. for an anti-theft hold) is to **coast first with 0x02, then apply
+0x04 only once the wheel is below ~1 km/h** to lock it stopped. Re-confirm on the
+bench (wheel off the ground, logging battery current and `temp1`) before relying
+on either bit.
 
 ### 6.4 Headlight
 
@@ -377,6 +416,7 @@ and a wiring self-check). Raw and decoded captures are under `captures/` and
 | Speed-byte real-world unit  | ≈0.16 km/h/count (hypothesis, tenths of mph)    |
 | Boot one-shots 0x1F / 0x20  | No observed effect; likely unnecessary          |
 | Odometer persistence        | Not saved by controller alone                   |
+| Poll flags 0x02 / 0x04      | Coast / active-brake (§3.1, §6.3); found once by fuzzing, re-confirm + log current/temp |
 
 `temp1`/`temp2` are confirmed temperatures (ride isolates them from load); to
 calibrate raw→°C, hold a thermometer on the controller/motor while logging.
