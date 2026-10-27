@@ -60,6 +60,10 @@ void config_set_defaults(config_t *c)
 
     // system
     c->units = UNITS_KMH;
+
+    // display
+    c->display_invert = 0;          // dark mode (white on black)
+    c->range_full_km  = 30;         // Bird One ~30 km at full; tune to taste
 }
 
 void config_init(void)
@@ -76,10 +80,22 @@ void config_init(void)
         size_t sz = sizeof(tmp);
         esp_err_t r = nvs_get_blob(h, NVS_KEY, &tmp, &sz);
         nvs_close(h);
-        if (r == ESP_OK && sz == sizeof(tmp) &&
-            tmp.magic == CONFIG_MAGIC && tmp.version == CONFIG_VERSION) {
-            g_cfg = tmp;
-            ESP_LOGI(TAG, "config loaded from NVS");
+        // Accept a stored blob of this size or an older (shorter) one, as long as
+        // the magic matches and it isn't from a newer firmware. Overlay the stored
+        // bytes on the defaults so appended fields get defaults and everything
+        // else (calibration, etc.) is preserved - no wipe on additive upgrades.
+        if (r == ESP_OK && sz <= sizeof(tmp) && sz >= sizeof(uint32_t) + sizeof(uint16_t) &&
+            tmp.magic == CONFIG_MAGIC && tmp.version <= CONFIG_VERSION) {
+            config_set_defaults(&g_cfg);
+            memcpy(&g_cfg, &tmp, sz);
+            g_cfg.magic   = CONFIG_MAGIC;
+            g_cfg.version = CONFIG_VERSION;
+            if (sz != sizeof(tmp)) {
+                config_save();          // persist in the current (larger) layout
+                ESP_LOGI(TAG, "config migrated to v%u (preserved settings)", CONFIG_VERSION);
+            } else {
+                ESP_LOGI(TAG, "config loaded from NVS");
+            }
             return;
         }
     }
@@ -132,6 +148,8 @@ char *config_to_json(void)
     cJSON_AddNumberToObject(r, "pack_cal_ref_node_mv", g_cfg.pack_cal_ref_node_mv);
     cJSON_AddNumberToObject(r, "pack_cal_ref_pack_mv", g_cfg.pack_cal_ref_pack_mv);
     cJSON_AddNumberToObject(r, "units", g_cfg.units);
+    cJSON_AddNumberToObject(r, "display_invert", g_cfg.display_invert);
+    cJSON_AddNumberToObject(r, "range_full_km", g_cfg.range_full_km);
     char *s = cJSON_PrintUnformatted(r);
     cJSON_Delete(r);
     return s;
@@ -185,6 +203,8 @@ bool config_from_json(const char *json, int len)
     GN("pack_cal_ref_node_mv", pack_cal_ref_node_mv, 0, 4000);
     GN("pack_cal_ref_pack_mv", pack_cal_ref_pack_mv, 0, 120000);
     GN("units", units, 0, 1);
+    GN("display_invert", display_invert, 0, 1);
+    GN("range_full_km", range_full_km, 1, 200);
 
 #undef GN
 #undef GB

@@ -27,6 +27,7 @@ static uint32_t s_pack_mv;
 static uint32_t s_pack_node_mv;               // last ADC node voltage (pre-divider)
 static int s_thr_ema = -1;     // -1 = uninitialised
 static int s_brk_ema = -1;
+static int s_pack_ema = -1;    // smooths the pack node voltage (noisy, slow signal)
 static int s_last_thr_raw, s_last_brk_raw;
 static inputs_t s_last_in;     // last full sample, for inputs_last()
 
@@ -127,8 +128,16 @@ static void apply_pack_scale(int node_mv)
 void inputs_sample_pack(bool allowed)
 {
     if (!allowed || !s_pack_ready) return;
-    int raw = 0;
-    if (adc_oneshot_read(s_adc2, ADC_PACK_CHANNEL, &raw) != ESP_OK) return;
+
+    // Oversample (the pack channel isn't read through read_avg) then smooth with
+    // an EMA, so the displayed voltage doesn't jitter while stationary.
+    int acc = 0, got = 0;
+    for (int i = 0; i < OVERSAMPLE * 2; i++) {
+        int raw = 0;
+        if (adc_oneshot_read(s_adc2, ADC_PACK_CHANNEL, &raw) == ESP_OK) { acc += raw; got++; }
+    }
+    if (!got) return;
+    int raw = acc / got;
 
     int node_mv = 0;
     if (s_pack_cali) {
@@ -136,7 +145,7 @@ void inputs_sample_pack(bool allowed)
     } else {
         node_mv = raw * 3100 / 4095;   // rough (12 dB full-scale ~3.1 V)
     }
-    apply_pack_scale(node_mv);
+    apply_pack_scale(ema(&s_pack_ema, node_mv));
 }
 
 // Re-apply the pack scaling to the last-read node voltage (used right after a

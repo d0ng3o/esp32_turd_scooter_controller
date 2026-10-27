@@ -27,6 +27,8 @@ CONFIG_ADC_ONESHOT_FORCE_USE_ADC2_ON_C3=y
 # Compiler
 CONFIG_COMPILER_OPTIMIZATION_SIZE=y
 
-# LVGL fonts used on the OLED (14 = default, 28 = big speed readout).
+# LVGL fonts used on the OLED: 12 = bottom bar, 14 = top bar/icons,
+# 36 = big speed / SoC readout.
+CONFIG_LV_FONT_MONTSERRAT_12=y
 CONFIG_LV_FONT_MONTSERRAT_14=y
-CONFIG_LV_FONT_MONTSERRAT_28=y
+CONFIG_LV_FONT_MONTSERRAT_36=y

@@ -14,7 +14,10 @@
 #include "esp_err.h"
 
 #define CONFIG_MAGIC    0x54555244u   // 'TURD'
-#define CONFIG_VERSION  3
+#define CONFIG_VERSION  4
+// NOTE: only ever *append* fields to config_t (never reorder/resize existing
+// ones). config_init() migrates an older, shorter NVS blob by overlaying it on
+// the defaults, so appended fields get their defaults and the rest is preserved.
 
 typedef enum {
     HEADLIGHT_AUTO = 0,   // on while moving (original behaviour)
@@ -78,6 +81,10 @@ typedef struct {
 
     // --- system ---
     uint8_t  units;                 // units_t
+
+    // --- display (append new fields below this line only) ---
+    uint8_t  display_invert;        // 0 = dark (white on black), 1 = light (inverted)
+    uint16_t range_full_km;         // estimated range at 100% SoC, for the range readout
 } config_t;
 
 extern config_t g_cfg;              // the live configuration

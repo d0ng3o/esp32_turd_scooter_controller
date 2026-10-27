@@ -30,20 +30,6 @@
 
 static const char *TAG = "app";
 
-static const char *state_str(ride_state_t s, bool config)
-{
-    if (config) return "CONFIG";
-    switch (s) {
-        case RIDE_FAULT:   return "NO LINK";
-        case RIDE_LOCKED:  return "LOCKED";
-        case RIDE_IDLE:    return "IDLE";
-        case RIDE_READY:   return "READY";
-        case RIDE_RIDING:  return "RIDE";
-        case RIDE_BRAKING: return "BRAKE";
-        default:           return "";
-    }
-}
-
 static void ride_task(void *arg)
 {
     (void)arg;
@@ -158,15 +144,22 @@ static void ride_task(void *arg)
         // Refresh the OLED a few times per second (only when it's on).
         if (chg_screen_on && (n % 10) == 0) {
             if (charging) {
-                display_charging(telem.soc, telem.charge_cA / 100.0, full);
+                display_charging(telem.soc, telem.charge_cA / 100.0,
+                                 inputs_pack_mv() / 1000.0, full);
             } else {
+                bool   mph = (g_cfg.units == UNITS_MPH);
                 double kmh = telem.speed * 0.16;     // ~0.16 km/h per speed count
-                int   spd  = (g_cfg.units == UNITS_MPH) ? (int)(kmh * 0.6214 + 0.5)
-                                                        : (int)(kmh + 0.5);
-                display_update(state_str(out.state, config_active), spd,
-                               g_cfg.units == UNITS_MPH ? "mph" : "km/h",
+                int    spd = mph ? (int)(kmh * 0.6214 + 0.5) : (int)(kmh + 0.5);
+                // Linear range estimate from SoC and the configured full range;
+                // unknown (-1 -> "--") when there's no valid telemetry to base it on.
+                int    range = -1;
+                if (link && telem.valid) {
+                    double range_km = g_cfg.range_full_km * (telem.soc / 100.0);
+                    range = mph ? (int)(range_km * 0.6214 + 0.5) : (int)(range_km + 0.5);
+                }
+                display_update(out.state, config_active, spd, mph,
                                telem.soc, telem.current_cA / 100.0,
-                               inputs_pack_mv() / 1000.0);
+                               inputs_pack_mv() / 1000.0, range);
             }
         }
 
