@@ -126,6 +126,42 @@ bus link.
 
 (D0 IMU-INT, D3 pack sense, D4/D5 I²C, D10 expansion are wired but used by later phases.)
 
+## Status LED
+
+A single WS2812B (D8) encodes what the firmware is doing. Unless noted, each
+colour is **steady**; only charging animates. Overall brightness follows the
+`led_brightness` config (default 64/255) — so the colours look dimmer than the
+raw values below. The LED is blanked in deep sleep.
+
+**Ride states** (normal operation):
+
+| Colour | State | Meaning |
+|---|---|---|
+| 🔴 Red | `RIDE_FAULT` | No bus link to the controller — throttle is forced to 0. Also the boot state until the link comes up; paired with the fault chirp. |
+| 🟣 Purple | `RIDE_LOCKED` | Locked. The motor is never powered in this state; throttle stays inhibited until an unlock gesture. The scooter **boots locked**. |
+| 🔵 Blue | `RIDE_IDLE` | Unlocked, link OK, wheel stopped — waiting for a kick. |
+| 🟢 Green | `RIDE_RIDING` | Unlocked and delivering throttle to the controller. |
+| 🟠 Amber | `RIDE_BRAKING` | Brake engaged — throttle forced to 0. |
+
+**Special modes** (override the ride-state colour):
+
+| Colour / pattern | Meaning |
+|---|---|
+| 🟦 Steady cyan | WiFi config / OTA portal is open (brake + full throttle 20 s). Clears when the portal exits. |
+| 🟠 Breathing amber | Charging — a slow ~2.4 s fade in/out (never fully off). |
+| 🟢 Steady green | Charging complete (battery full). |
+| ⚫ Off | Deep sleep, or `led off` on the console. |
+
+Notes:
+- A teal-green `RIDE_READY` colour exists in the code but isn't currently shown:
+  kick-to-start is enforced by the motor controller, so the firmware goes
+  straight from IDLE (blue) to RIDING (green) when throttle is delivered.
+- Nothing blinks per-state; the only animation is the charging breath. (The
+  motion alarm while locked is the **buzzer**, not an LED pattern — the LED stays
+  purple.)
+- The `led red|green|blue|white|off` console command overrides the pixel at full
+  brightness for testing; `led auto` hands it back to the ride state.
+
 ## Bench testing (before the scooter arrives)
 
 1. **Echo filter / loopback.** Jumper D6↔D7 (they're tied on the real board
