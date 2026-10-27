@@ -17,6 +17,13 @@ CONFIG_PARTITION_TABLE_CUSTOM_FILENAME="partitions.csv"
 # 1 kHz tick: clean 20 ms (50 Hz) poll cadence for the bus loop.
 CONFIG_FREERTOS_HZ=1000
 
+# Pack-voltage sense sits on GPIO5 = ADC2_CH0. On the ESP32-C3 the ADC2 one-shot
+# driver is disabled by default (the ADC2 digital controller is marked unstable),
+# so adc_oneshot_new_unit() returns ESP_ERR_NOT_SUPPORTED and the pack reads 0 V.
+# We only ever sample the pack with the radio off (inputs_sample_pack is gated),
+# so the Wi-Fi contention the erratum warns about doesn't apply here. Force it on.
+CONFIG_ADC_ONESHOT_FORCE_USE_ADC2_ON_C3=y
+
 # Compiler
 CONFIG_COMPILER_OPTIMIZATION_SIZE=y
 

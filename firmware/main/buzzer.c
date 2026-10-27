@@ -103,3 +103,13 @@ void buzzer_fault(void)
 {
     buzzer_pattern(2200, 120, 80, 3);
 }
+
+void buzzer_tone_on(uint16_t freq)
+{
+    tone_on(freq ? freq : BUZZER_TONE_HZ);   // hardware test: ignores buzzer_enable
+}
+
+void buzzer_tone_off(void)
+{
+    tone_off();
+}

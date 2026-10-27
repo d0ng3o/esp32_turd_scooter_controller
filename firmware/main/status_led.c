@@ -14,7 +14,8 @@
 static const char *TAG = "led";
 
 static led_strip_handle_t s_strip;
-static int s_last = -1;
+static int  s_last = -1;
+static bool s_override;          // `led` test command holds the LED; ride loop yields
 
 esp_err_t status_led_init(void)
 {
@@ -53,8 +54,24 @@ void status_led_rgb(uint8_t r, uint8_t g, uint8_t b)
     set_rgb(r, g, b);
 }
 
+void status_led_raw(uint8_t r, uint8_t g, uint8_t b)
+{
+    s_override = true;                           // hold until `led auto`
+    s_last = -1;
+    if (!s_strip) return;
+    led_strip_set_pixel(s_strip, 0, r, g, b);    // no brightness scaling
+    led_strip_refresh(s_strip);
+}
+
+void status_led_auto(void)
+{
+    s_override = false;                          // release to ride-state colors
+    s_last = -1;
+}
+
 void status_led_state(ride_state_t state)
 {
+    if (s_override) return;              // a manual `led` test is holding the pixel
     if ((int)state == s_last) return;
     s_last = (int)state;
 

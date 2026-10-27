@@ -13,6 +13,8 @@
 #include "bus.h"
 #include "security.h"
 #include "netcfg.h"
+#include "status_led.h"
+#include "buzzer.h"
 
 #include <string.h>
 #include <stdlib.h>
@@ -20,6 +22,7 @@
 
 #include "esp_console.h"
 #include "esp_system.h"
+#include "driver/gpio.h"
 #include "freertos/FreeRTOS.h"
 #include "freertos/task.h"
 
@@ -54,6 +57,92 @@ static int cmd_status(int argc, char **argv)
            bus_link_ok(), security_is_locked(), t.speed, t.soc,
            t.current_cA / 100.0, inputs_pack_mv() / 1000.0, t.temp1,
            (unsigned long)t.odometer);
+    return 0;
+}
+
+static int cmd_bus(int argc, char **argv)
+{
+    if (argc > 1 && !strcmp(argv[1], "reset")) {
+        bus_reset_debug();
+        printf("bus counters cleared\n");
+        return 0;
+    }
+    bus_debug_t d;
+    bus_get_debug(&d);
+    printf("link=%d  tx=%lu rx=%lu  echo=%lu foreign=%lu  sof=%lu frames_ok=%lu\n",
+           bus_link_ok(),
+           (unsigned long)d.tx_total, (unsigned long)d.rx_total,
+           (unsigned long)d.echo_total, (unsigned long)d.foreign_total,
+           (unsigned long)d.sof_seen, (unsigned long)d.frames_ok);
+    printf("last foreign bytes:");
+    for (int i = 0; i < d.last_len; i++) printf(" %02X", d.last[i]);
+    printf("%s\n", d.last_len ? "" : " (none)");
+    printf("D6<->D7 tie: %s   echo probe: native=%d open-drain=%d loopback=%d\n",
+           d.tie_ok < 0 ? "untested" : (d.tie_ok ? "OK" : "OPEN (no continuity)"),
+           d.echo_nat, d.echo_od, d.echo_lb);
+    // Quick read of the three failure modes.
+    if (d.tx_total == 0)
+        printf("  -> not polling yet\n");
+    else if (d.echo_total == 0)
+        printf("  -> no echo: TX not driving the wire / D6-D7 tie or solder (check pins)\n");
+    else if (d.foreign_total == 0)
+        printf("  -> echo OK but controller silent: not powered/unwired, or bus wire open\n");
+    else if (d.frames_ok == 0)
+        printf("  -> controller IS replying but frames don't validate: baud/level/checksum\n");
+    else
+        printf("  -> link healthy\n");
+    return 0;
+}
+
+static int cmd_led(int argc, char **argv)
+{
+    const char *c = (argc > 1) ? argv[1] : "";
+    if      (!strcmp(c, "red"))   status_led_raw(255,   0,   0);
+    else if (!strcmp(c, "green")) status_led_raw(  0, 255,   0);
+    else if (!strcmp(c, "blue"))  status_led_raw(  0,   0, 255);
+    else if (!strcmp(c, "white")) status_led_raw(255, 255, 255);
+    else if (!strcmp(c, "off"))   status_led_raw(  0,   0,   0);
+    else if (!strcmp(c, "auto"))  { status_led_auto(); printf("led -> auto (ride state)\n"); return 0; }
+    else { printf("usage: led red|green|blue|white|off|auto  (test colour holds until `led auto`)\n"); return 1; }
+    printf("led -> %s (held; `led auto` to release)\n", c);
+    return 0;
+}
+
+static int cmd_beep(int argc, char **argv)
+{
+    // `beep off` stops a sustained tone; `beep on [freq]` runs continuously (so
+    // you can measure the Q1 gate); `beep [freq]` is a one-shot 600 ms tone.
+    if (argc > 1 && !strcmp(argv[1], "off")) {
+        buzzer_tone_off();
+        printf("beep off\n");
+        return 0;
+    }
+    bool sustain = (argc > 1 && !strcmp(argv[1], "on"));
+    int fi = sustain ? 2 : 1;
+    int freq = (argc > fi) ? atoi(argv[fi]) : 2000;
+    if (freq < 100 || freq > 10000) freq = 2000;
+    if (sustain) {
+        buzzer_tone_on(freq);
+        printf("beep ON %d Hz continuous - `beep off` to stop\n", freq);
+    } else {
+        buzzer_pattern(freq, 600, 0, 1);
+        printf("beep %d Hz (buzzer_enable=%s)\n", freq, g_cfg.buzzer_enable ? "on" : "OFF");
+    }
+    return 0;
+}
+
+static int cmd_gpio(int argc, char **argv)
+{
+    // Raw-drive a pin to a steady level for DMM measurement. This detaches any
+    // peripheral (RMT/LEDC) on that pin until reboot - it is a bench test only.
+    if (argc < 3) { printf("usage: gpio <num> <0|1>  (raw drive, detaches LED/buzzer until reboot)\n"); return 1; }
+    int num = atoi(argv[1]);
+    int lvl = atoi(argv[2]) ? 1 : 0;
+    gpio_reset_pin((gpio_num_t)num);
+    gpio_set_direction((gpio_num_t)num, GPIO_MODE_OUTPUT);
+    gpio_set_level((gpio_num_t)num, lvl);
+    printf("gpio %d driven %s (%s) - expect %s at the pad\n",
+           num, lvl ? "HIGH" : "LOW", lvl ? "3.3V" : "0V", lvl ? "~3.3V" : "~0V");
     return 0;
 }
 
@@ -131,6 +220,10 @@ void sercon_init(void)
         { .command = "get",      .help = "print the current config (JSON)",      .func = cmd_get },
         { .command = "set",      .help = "set <key> <value> and save to NVS",     .func = cmd_set },
         { .command = "status",   .help = "live telemetry (link/lock/speed/...)",  .func = cmd_status },
+        { .command = "bus",      .help = "one-wire bus counters; `bus reset` to clear", .func = cmd_bus },
+        { .command = "led",      .help = "led red|green|blue|white|off|auto (holds colour)", .func = cmd_led },
+        { .command = "beep",     .help = "beep [freq] | beep on [freq] | beep off",      .func = cmd_beep },
+        { .command = "gpio",     .help = "gpio <num> <0|1> - raw-drive a pin (bench test)", .func = cmd_gpio },
         { .command = "cal",      .help = "cal start|apply|cancel|show",           .func = cmd_cal },
         { .command = "wifi",     .help = "wifi on|off  (config/OTA portal)",      .func = cmd_wifi },
         { .command = "defaults", .help = "reset config to defaults",              .func = cmd_defaults },

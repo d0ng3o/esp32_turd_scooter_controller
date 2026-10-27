@@ -15,7 +15,11 @@
 #include <string.h>
 #include "driver/uart.h"
 #include "driver/gpio.h"
+#include "esp_rom_sys.h"
+#include "esp_rom_gpio.h"
 #include "esp_timer.h"
+#include "hal/uart_ll.h"
+#include "soc/uart_periph.h"
 #include "esp_log.h"
 #include "freertos/FreeRTOS.h"
 #include "freertos/semphr.h"
@@ -28,6 +32,22 @@ static const char *TAG = "bus";
 static SemaphoreHandle_t s_lock;
 static telemetry_t       s_telem;              // protected by s_lock
 static int64_t           s_last_status_us = INT64_MIN / 2;
+
+// Bring-up wire counters (see bus.h). Updated from the bus task without a lock
+// (benign races - they're diagnostic); snapshotted under s_lock in bus_get_debug.
+static bus_debug_t s_dbg;
+static int         s_last_pos;                 // ring write index into s_dbg.last
+static int8_t      s_tie_ok = -1;              // survives bus_reset_debug()
+static int8_t      s_echo_nat = -1, s_echo_od = -1, s_echo_lb = -1;
+
+static void dbg_push_foreign(uint8_t b)
+{
+    s_dbg.foreign_total++;
+    if (b == FRAME_SOF) s_dbg.sof_seen++;
+    s_dbg.last[s_last_pos] = b;
+    s_last_pos = (s_last_pos + 1) & 15;
+    if (s_dbg.last_len < 16) s_dbg.last_len++;
+}
 
 // ---- echo-expect ring: bytes we transmitted, awaiting their echo ------------
 #define EXP_SIZE 256                            // power of two
@@ -81,6 +101,7 @@ static void parse_buffer(void)
                 s_telem = t;
                 s_last_status_us = t.t_us;
                 xSemaphoreGive(s_lock);
+                s_dbg.frames_ok++;
             }
             i = end;                                     // consumed a frame
         } else {
@@ -99,8 +120,10 @@ static void parse_buffer(void)
 
 static void bus_process(const uint8_t *rx, int n)
 {
+    s_dbg.rx_total += n;
     for (int i = 0; i < n; i++) {
-        if (exp_match_pop(rx[i])) continue;             // our own echo -> drop
+        if (exp_match_pop(rx[i])) { s_dbg.echo_total++; continue; }  // our own echo
+        dbg_push_foreign(rx[i]);
         if (s_plen < (int)sizeof(s_pbuf)) {
             s_pbuf[s_plen++] = rx[i];                    // foreign byte -> parse
         }
@@ -112,6 +135,48 @@ static void bus_send(const uint8_t *frame, size_t len)
 {
     uart_write_bytes(BUS_UART_NUM, frame, len);
     exp_push(frame, len);
+    s_dbg.tx_total += len;
+}
+
+bool bus_selftest_tie(void)
+{
+    const gpio_config_t tx = {
+        .pin_bit_mask = 1ULL << PIN_BUS_TX, .mode = GPIO_MODE_OUTPUT,
+        .pull_up_en = 0, .pull_down_en = 0, .intr_type = GPIO_INTR_DISABLE,
+    };
+    const gpio_config_t rx = {
+        .pin_bit_mask = 1ULL << PIN_BUS_RX, .mode = GPIO_MODE_INPUT,
+        .pull_up_en = 0, .pull_down_en = 1, .intr_type = GPIO_INTR_DISABLE,
+    };
+    gpio_config(&tx);
+    gpio_config(&rx);
+
+    gpio_set_level(PIN_BUS_TX, 1);
+    esp_rom_delay_us(100);
+    int hi = gpio_get_level(PIN_BUS_RX);     // tied -> 1, open -> 0 (pulldown wins)
+    gpio_set_level(PIN_BUS_TX, 0);
+    esp_rom_delay_us(100);
+    int lo = gpio_get_level(PIN_BUS_RX);     // tied -> 0
+
+    bool ok = (hi == 1 && lo == 0);
+    s_tie_ok = ok ? 1 : 0;
+    ESP_LOGW(TAG, "D6<->D7 tie self-test: %s (drive-high read=%d, drive-low read=%d)",
+             ok ? "OK - wire intact" : "OPEN - no continuity (check D6/D7 solder)", hi, lo);
+    return ok;
+}
+
+// Send one byte and count the bytes that loop back on RX within a short window,
+// using the pins exactly as currently configured. Used by the boot echo probes.
+static int bus_probe_raw(void)
+{
+    uart_flush_input(BUS_UART_NUM);
+    const uint8_t tb = 0x55;                 // 0b01010101 -> lots of edges
+    uart_write_bytes(BUS_UART_NUM, &tb, 1);
+    uart_wait_tx_done(BUS_UART_NUM, pdMS_TO_TICKS(20));
+
+    uint8_t rx[16];
+    int n = uart_read_bytes(BUS_UART_NUM, rx, sizeof(rx), pdMS_TO_TICKS(20));
+    return n < 0 ? 0 : n;
 }
 
 esp_err_t bus_init(void)
@@ -132,13 +197,31 @@ esp_err_t bus_init(void)
     ESP_ERROR_CHECK(uart_set_pin(BUS_UART_NUM, PIN_BUS_TX, PIN_BUS_RX,
                                  UART_PIN_NO_CHANGE, UART_PIN_NO_CHANGE));
 
-    // Make the TX pad open-drain so it only ever pulls the shared wire low; the
-    // controller's ~740 ohm pull-up (and our internal pull-up, for bench
-    // loopback without the controller) sets the idle-high level. The UART output
-    // signal stays routed to the pad through the GPIO matrix.
-    ESP_ERROR_CHECK(gpio_set_direction(PIN_BUS_TX, GPIO_MODE_INPUT_OUTPUT_OD));
     ESP_ERROR_CHECK(gpio_set_pull_mode(PIN_BUS_TX, GPIO_PULLUP_ONLY));
     ESP_ERROR_CHECK(gpio_set_pull_mode(PIN_BUS_RX, GPIO_PULLUP_ONLY));
+
+    // Probe 1 (native): exactly as uart_set_pin leaves TX - push-pull, UART matrix
+    // out intact. Confirms the bare pin routing echoes over the D6<->D7 tie before
+    // we touch the direction.
+    s_echo_nat = bus_probe_raw();
+
+    // Make the TX pad open-drain (so on the shared bus it only ever pulls low).
+    // *** The fix: gpio_set_direction() re-points the pad OUTPUT to the GPIO
+    // register, detaching the UART1 TX signal - which silently killed the bus.
+    // Re-attach UART1 TX to the pad through the GPIO matrix afterwards. ***
+    gpio_set_direction(PIN_BUS_TX, GPIO_MODE_INPUT_OUTPUT_OD);
+    gpio_set_pull_mode(PIN_BUS_TX, GPIO_PULLUP_ONLY);
+    esp_rom_gpio_connect_out_signal(PIN_BUS_TX,
+        UART_PERIPH_SIGNAL(BUS_UART_NUM, SOC_UART_TX_PIN_IDX), false, false);
+    s_echo_od = bus_probe_raw();
+
+    // Probe 3 (internal loopback): UART core only, pads bypassed - sanity baseline.
+    uart_ll_set_loop_back(UART_LL_GET_HW(BUS_UART_NUM), true);
+    s_echo_lb = bus_probe_raw();
+    uart_ll_set_loop_back(UART_LL_GET_HW(BUS_UART_NUM), false);
+
+    ESP_LOGW(TAG, "bus echo probe: native=%d open-drain=%d loopback=%d (of 1 byte)",
+             s_echo_nat, s_echo_od, s_echo_lb);
 
     ESP_LOGI(TAG, "one-wire bus up: UART%d TX=GPIO%d RX=GPIO%d @ %d 8N1 (open-drain)",
              BUS_UART_NUM, PIN_BUS_TX, PIN_BUS_RX, BUS_BAUD);
@@ -179,4 +262,27 @@ bool bus_link_ok(void)
     int64_t last = s_last_status_us;
     xSemaphoreGive(s_lock);
     return (esp_timer_get_time() - last) < BUS_LINK_TIMEOUT_US;
+}
+
+void bus_get_debug(bus_debug_t *out)
+{
+    xSemaphoreTake(s_lock, portMAX_DELAY);
+    *out = s_dbg;
+    // Linearise the last[] ring into oldest..newest order for display.
+    int len = s_dbg.last_len;
+    int start = (len < 16) ? 0 : s_last_pos;       // full -> oldest is at write head
+    for (int i = 0; i < len; i++) out->last[i] = s_dbg.last[(start + i) & 15];
+    out->tie_ok = s_tie_ok;
+    out->echo_nat = s_echo_nat;
+    out->echo_od = s_echo_od;
+    out->echo_lb = s_echo_lb;
+    xSemaphoreGive(s_lock);
+}
+
+void bus_reset_debug(void)
+{
+    xSemaphoreTake(s_lock, portMAX_DELAY);
+    memset(&s_dbg, 0, sizeof(s_dbg));
+    s_last_pos = 0;
+    xSemaphoreGive(s_lock);
 }

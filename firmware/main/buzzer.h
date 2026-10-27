@@ -17,3 +17,8 @@ void buzzer_pattern(uint16_t freq, uint16_t on_ms, uint16_t off_ms, uint8_t coun
 // Convenience patterns.
 void buzzer_boot(void);    // single short chirp at power-up
 void buzzer_fault(void);   // triple warning beep
+
+// Bring-up test: start a continuous tone (until buzzer_tone_off), so the gate
+// drive can be measured with a DMM. Bypasses the pattern queue.
+void buzzer_tone_on(uint16_t freq);
+void buzzer_tone_off(void);

@@ -126,6 +126,7 @@ void app_main(void)
     ESP_ERROR_CHECK(buzzer_init());
     ESP_ERROR_CHECK(status_led_init());
     ESP_ERROR_CHECK(inputs_init());
+    bus_selftest_tie();          // check the D6<->D7 tie while the pins are still GPIOs
     ESP_ERROR_CHECK(bus_init());
     control_init();
     gesture_init();
