@@ -11,6 +11,7 @@
 #include "config.h"
 #include "inputs.h"
 #include "gesture.h"
+#include "range.h"
 #include "board.h"
 #include "bus.h"
 #include "security.h"
@@ -56,11 +57,13 @@ static int cmd_status(int argc, char **argv)
     telemetry_t t;
     bus_get_telemetry(&t);
     bool charging = bus_link_ok() && t.valid && t.charge_cA >= CHARGE_DETECT_cA;
-    printf("link=%d locked=%d speed=%u soc=%u%% current=%.2fA chg=%.2fA%s pack=%.1fV temp1=%u odo=%lu\n",
+    printf("link=%d locked=%d speed=%u soc=%u%% current=%.2fA chg=%.2fA%s pack=%.1fV temp1=%u temp2=%u odo=%lu\n",
            bus_link_ok(), security_is_locked(), t.speed, t.soc,
            t.current_cA / 100.0, t.charge_cA / 100.0,
            charging ? (t.soc >= CHARGE_FULL_SOC ? " [FULL]" : " [CHARGING]") : "",
-           inputs_pack_mv() / 1000.0, t.temp1, (unsigned long)t.odometer);
+           inputs_pack_mv() / 1000.0, t.temp1, t.temp2, (unsigned long)t.odometer);
+    printf("range~%.1fkm (%.3f Ah/km, cap %.1f Ah)\n",
+           range_km(t.soc), range_ah_per_km(), g_cfg.pack_capacity_mah / 1000.0);
     return 0;
 }
 
@@ -147,6 +150,20 @@ static int cmd_gpio(int argc, char **argv)
     gpio_set_level((gpio_num_t)num, lvl);
     printf("gpio %d driven %s (%s) - expect %s at the pad\n",
            num, lvl ? "HIGH" : "LOW", lvl ? "3.3V" : "0V", lvl ? "~3.3V" : "~0V");
+    return 0;
+}
+
+static int cmd_range(int argc, char **argv)
+{
+    if (argc > 1 && !strcmp(argv[1], "reset")) {
+        range_reset();
+        printf("range estimate reset to seed (%.3f Ah/km)\n", range_ah_per_km());
+        return 0;
+    }
+    telemetry_t t;
+    bus_get_telemetry(&t);
+    printf("range~%.1fkm  %.3f Ah/km  cap=%.1f Ah  (set pack_capacity_mah from the label)\n",
+           range_km(t.soc), range_ah_per_km(), g_cfg.pack_capacity_mah / 1000.0);
     return 0;
 }
 
@@ -333,6 +350,7 @@ void sercon_init(void)
         { .command = "gpio",     .help = "gpio <num> <0|1> - raw-drive a pin (bench test)", .func = cmd_gpio },
         { .command = "mon",      .help = "mon [secs] - live throttle/brake/gesture stream", .func = cmd_mon },
         { .command = "pack",     .help = "pack voltage cal: pack cal zero|span <volts>|clear", .func = cmd_pack },
+        { .command = "range",    .help = "range estimate; `range reset` to re-seed",      .func = cmd_range },
         { .command = "cal",      .help = "cal start|apply|cancel|show",           .func = cmd_cal },
         { .command = "wifi",     .help = "wifi on|off  (config/OTA portal)",      .func = cmd_wifi },
         { .command = "defaults", .help = "reset config to defaults",              .func = cmd_defaults },

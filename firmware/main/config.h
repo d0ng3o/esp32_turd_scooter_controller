@@ -14,7 +14,7 @@
 #include "esp_err.h"
 
 #define CONFIG_MAGIC    0x54555244u   // 'TURD'
-#define CONFIG_VERSION  4
+#define CONFIG_VERSION  6
 // NOTE: only ever *append* fields to config_t (never reorder/resize existing
 // ones). config_init() migrates an older, shorter NVS blob by overlaying it on
 // the defaults, so appended fields get their defaults and the rest is preserved.
@@ -84,7 +84,14 @@ typedef struct {
 
     // --- display (append new fields below this line only) ---
     uint8_t  display_invert;        // 0 = dark (white on black), 1 = light (inverted)
-    uint16_t range_full_km;         // estimated range at 100% SoC, for the range readout
+    uint16_t range_full_km;         // cold-start range at 100% SoC (seeds the estimator)
+
+    // --- range estimate ---
+    uint16_t wheel_circ_mm;         // wheel circumference (odometer count -> distance)
+    uint16_t pack_capacity_mah;     // pack charge capacity, mAh (from the battery label)
+
+    // --- display power ---
+    uint16_t display_timeout_s;     // blank the OLED after this idle time (0 = never)
 } config_t;
 
 extern config_t g_cfg;              // the live configuration

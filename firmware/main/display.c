@@ -138,11 +138,11 @@ static void build_ride_screen(void)
 
     mk_divider(s_ride, 49);
 
-    // Footer: current / pack volts / range.
-    s_amp   = mk_label(s_ride, &lv_font_montserrat_12, LV_ALIGN_BOTTOM_LEFT,  0, 0);
-    lv_label_set_text(s_amp, "--A");
-    s_volt  = mk_label(s_ride, &lv_font_montserrat_12, LV_ALIGN_BOTTOM_MID,   0, 0);
+    // Footer: pack volts / current / range (volts kept away from the range).
+    s_volt  = mk_label(s_ride, &lv_font_montserrat_12, LV_ALIGN_BOTTOM_LEFT,  0, 0);
     lv_label_set_text(s_volt, "--V");
+    s_amp   = mk_label(s_ride, &lv_font_montserrat_12, LV_ALIGN_BOTTOM_MID,  -5, 0);
+    lv_label_set_text(s_amp, "--A");
     s_range = mk_label(s_ride, &lv_font_montserrat_12, LV_ALIGN_BOTTOM_RIGHT, 0, 0);
     lv_label_set_text(s_range, "--km");
 }
@@ -245,7 +245,7 @@ void display_on(void)
 }
 
 void display_update(int state, bool config_active, int speed, bool mph,
-                    int soc, double amps, double pack_v, int range)
+                    int soc, double amps, double pack_v, float range)
 {
     if (!s_disp) return;
     apply_invert();
@@ -273,7 +273,7 @@ void display_update(int state, bool config_active, int speed, bool mph,
     snprintf(b, sizeof(b), "%.1fA", amps);                     lv_label_set_text(s_amp, b);
     snprintf(b, sizeof(b), "%.1fV", pack_v);                   lv_label_set_text(s_volt, b);
     if (range < 0) snprintf(b, sizeof(b), "--%s", mph ? "mi" : "km");
-    else           snprintf(b, sizeof(b), "%d%s", range, mph ? "mi" : "km");
+    else           snprintf(b, sizeof(b), "%.1f%s", range, mph ? "mi" : "km");
     lv_label_set_text(s_range, b);
     lvgl_port_unlock();
 }

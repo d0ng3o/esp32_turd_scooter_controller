@@ -17,6 +17,7 @@
 #include "display.h"
 #include "buzzer.h"
 #include "status_led.h"
+#include "range.h"
 
 #include "esp_timer.h"
 #include "esp_sleep.h"
@@ -39,6 +40,7 @@ static void enter_deep_sleep(void)
 {
     ESP_LOGW(TAG, "idle %u s -> deep sleep", g_cfg.auto_sleep_timeout_s);
 
+    range_save();               // persist the learned range rate before sleeping
     display_off();              // blank the OLED
     status_led_off();           // blank the WS2812 (it latches its last colour)
     buzzer_deep_sleep_prep();   // leave the buzzer gate off (Q1 held low by R10)

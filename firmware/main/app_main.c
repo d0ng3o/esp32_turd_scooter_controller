@@ -13,6 +13,7 @@
 #include "bus.h"
 #include "inputs.h"
 #include "control.h"
+#include "range.h"
 #include "gesture.h"
 #include "security.h"
 #include "imu.h"
@@ -48,10 +49,12 @@ static void ride_task(void *arg)
     int64_t link_down_us     = 0;
     int64_t link_up_us       = 0;
 
-    // Charging: stay awake but blank the OLED to spare it; motion wakes the
-    // screen for CHARGE_SCREEN_ON_MS to show the charging readout.
-    bool    chg_screen_on    = true;    // tracks the panel on/off state
-    int64_t chg_screen_until = 0;       // keep the screen on until this time
+    // Display power: blank the OLED to spare it. While charging, motion wakes it
+    // for CHARGE_SCREEN_ON_MS; otherwise it blanks after display_timeout_s idle.
+    bool    screen_on        = true;    // tracks the panel on/off state
+    int64_t chg_screen_until = 0;       // charging: keep the screen on until this
+    int64_t idle_screen_until =         // riding/idle: keep the screen on until this
+        esp_timer_get_time() + (int64_t)g_cfg.display_timeout_s * 1000000;
     bool    was_charging     = false;   // detect the charging rising edge
 
     ESP_LOGI(TAG, "ride loop started");
@@ -73,6 +76,11 @@ static void ride_task(void *arg)
         // Charging: the controller reports charge current on charger standby.
         bool charging = link && telem.valid && telem.charge_cA >= CHARGE_DETECT_cA;
         bool full     = charging && telem.soc >= CHARGE_FULL_SOC;
+
+        // Feed the charge-based range estimator (only with a real link).
+        if (link && telem.valid)
+            range_update(telem.soc, telem.odometer, telem.current_cA,
+                         wheel_moving, charging);
 
         gesture_event_t g = gesture_update(&in, stationary);
         if (g == GESTURE_CONFIG) {
@@ -128,21 +136,28 @@ static void ride_task(void *arg)
         }
         link_was_ok = link;
 
-        // Display power: while charging, keep the OLED off to spare it and only
-        // wake it for CHARGE_SCREEN_ON_MS when charging starts or on motion.
-        // Otherwise it's always on (deep sleep blanks it separately).
+        // Display power. Config portal: always on. Charging: off except for
+        // CHARGE_SCREEN_ON_MS after charge-start or motion. Otherwise: on while
+        // active, blanking display_timeout_s after the last activity (0 = never).
         bool chg_started = charging && !was_charging;
         was_charging = charging;
+        if (chg_started) range_save();      // ride ended -> persist consumption
+        if (active) idle_screen_until = now_us + (int64_t)g_cfg.display_timeout_s * 1000000;
         if (charging && (imu_mot || chg_started))
             chg_screen_until = now_us + (int64_t)CHARGE_SCREEN_ON_MS * 1000;
-        bool want_screen = charging ? (now_us < chg_screen_until) : true;
-        if (want_screen != chg_screen_on) {
+
+        bool want_screen;
+        if (config_active)      want_screen = true;
+        else if (charging)      want_screen = (now_us < chg_screen_until);
+        else                    want_screen = (g_cfg.display_timeout_s == 0) ||
+                                              (now_us < idle_screen_until);
+        if (want_screen != screen_on) {
             if (want_screen) display_on(); else display_off();
-            chg_screen_on = want_screen;
+            screen_on = want_screen;
         }
 
         // Refresh the OLED a few times per second (only when it's on).
-        if (chg_screen_on && (n % 10) == 0) {
+        if (screen_on && (n % 10) == 0) {
             if (charging) {
                 display_charging(telem.soc, telem.charge_cA / 100.0,
                                  inputs_pack_mv() / 1000.0, full);
@@ -150,13 +165,9 @@ static void ride_task(void *arg)
                 bool   mph = (g_cfg.units == UNITS_MPH);
                 double kmh = telem.speed * 0.16;     // ~0.16 km/h per speed count
                 int    spd = mph ? (int)(kmh * 0.6214 + 0.5) : (int)(kmh + 0.5);
-                // Linear range estimate from SoC and the configured full range;
-                // unknown (-1 -> "--") when there's no valid telemetry to base it on.
-                int    range = -1;
-                if (link && telem.valid) {
-                    double range_km = g_cfg.range_full_km * (telem.soc / 100.0);
-                    range = mph ? (int)(range_km * 0.6214 + 0.5) : (int)(range_km + 0.5);
-                }
+                // Adaptive range estimate (range.c); "--" (-1) without a link.
+                float  range = (link && telem.valid) ? range_km(telem.soc) : -1.0f;
+                if (mph && range >= 0) range *= 0.6214f;
                 display_update(out.state, config_active, spd, mph,
                                telem.soc, telem.current_cA / 100.0,
                                inputs_pack_mv() / 1000.0, range);
@@ -181,6 +192,7 @@ void app_main(void)
     bus_selftest_tie();          // check the D6<->D7 tie while the pins are still GPIOs
     ESP_ERROR_CHECK(bus_init());
     control_init();
+    range_init();        // load the learned km-per-%% rate
     gesture_init();
     security_init();
     imu_init();          // non-fatal if absent; wake-on-motion + alarm degrade off

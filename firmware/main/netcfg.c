@@ -102,9 +102,9 @@ static esp_err_t h_status(httpd_req_t *req)
     char buf[256];
     snprintf(buf, sizeof(buf),
              "{\"link\":%d,\"locked\":%d,\"speed\":%u,\"soc\":%u,"
-             "\"current_cA\":%u,\"temp1\":%u,\"odo\":%lu,\"pack_mv\":%lu}",
+             "\"current_cA\":%u,\"temp1\":%u,\"temp2\":%u,\"odo\":%lu,\"pack_mv\":%lu}",
              bus_link_ok() ? 1 : 0, security_is_locked() ? 1 : 0,
-             t.speed, t.soc, t.current_cA, t.temp1, (unsigned long)t.odometer,
+             t.speed, t.soc, t.current_cA, t.temp1, t.temp2, (unsigned long)t.odometer,
              (unsigned long)inputs_pack_mv());
     httpd_resp_set_type(req, "application/json");
     httpd_resp_sendstr(req, buf);

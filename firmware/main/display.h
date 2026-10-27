@@ -16,7 +16,7 @@ esp_err_t display_init(void);
 // as int to keep this header free of control.h); `config_active` shows the WiFi
 // icon; `mph` selects units; `range` is the estimated remaining distance.
 void display_update(int state, bool config_active, int speed, bool mph,
-                    int soc, double amps, double pack_v, int range);
+                    int soc, double amps, double pack_v, float range);
 
 // Turn the panel off (blank) ahead of deep sleep / while charging. The
 // framebuffer is kept, so the next update restores the readout.

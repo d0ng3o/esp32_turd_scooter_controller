@@ -63,7 +63,14 @@ void config_set_defaults(config_t *c)
 
     // display
     c->display_invert = 0;          // dark mode (white on black)
-    c->range_full_km  = 30;         // Bird One ~30 km at full; tune to taste
+    c->range_full_km  = 30;         // cold-start seed; the estimator learns from here
+
+    // range estimate
+    c->wheel_circ_mm   = 700;       // ~0.70 m/rev (PROTOCOL.md); tune per wheel
+    c->pack_capacity_mah = 12800;   // 12.8 Ah (Bird One 36 V pack)
+
+    // display power
+    c->display_timeout_s = 60;      // blank the OLED after 1 min idle (awake)
 }
 
 void config_init(void)
@@ -150,6 +157,9 @@ char *config_to_json(void)
     cJSON_AddNumberToObject(r, "units", g_cfg.units);
     cJSON_AddNumberToObject(r, "display_invert", g_cfg.display_invert);
     cJSON_AddNumberToObject(r, "range_full_km", g_cfg.range_full_km);
+    cJSON_AddNumberToObject(r, "wheel_circ_mm", g_cfg.wheel_circ_mm);
+    cJSON_AddNumberToObject(r, "pack_capacity_mah", g_cfg.pack_capacity_mah);
+    cJSON_AddNumberToObject(r, "display_timeout_s", g_cfg.display_timeout_s);
     char *s = cJSON_PrintUnformatted(r);
     cJSON_Delete(r);
     return s;
@@ -205,6 +215,9 @@ bool config_from_json(const char *json, int len)
     GN("units", units, 0, 1);
     GN("display_invert", display_invert, 0, 1);
     GN("range_full_km", range_full_km, 1, 200);
+    GN("wheel_circ_mm", wheel_circ_mm, 100, 3000);
+    GN("pack_capacity_mah", pack_capacity_mah, 0, 60000);
+    GN("display_timeout_s", display_timeout_s, 0, 3600);
 
 #undef GN
 #undef GB

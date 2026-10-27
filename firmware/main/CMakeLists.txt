@@ -8,6 +8,7 @@ idf_component_register(
         "bus.c"
         "inputs.c"
         "control.c"
+        "range.c"
         "gesture.c"
         "security.c"
         "imu.c"
