@@ -15,7 +15,7 @@ interlocks. Built with **ESP-IDF v5.2+**.
 | Area | State |
 |---|---|
 | One-wire open-drain UART bus (colon protocol, echo-filtered, 50 Hz poll + status decode) | ✅ |
-| Throttle/brake ADC, filtering, mapping | ✅ (placeholder calibration) |
+| Throttle/brake ADC, filtering, mapping | ✅ (per-unit calibration via `cal`) |
 | Ride state machine + failsafes (brake→0, link-loss, lock) | ✅ |
 | Kick-to-start | enforced by the motor controller (PROTOCOL.md §6.2) — not duplicated in firmware |
 | Ride-feel shaping (throttle cap, curve, soft-start) | ✅ |
@@ -26,12 +26,17 @@ interlocks. Built with **ESP-IDF v5.2+**.
 | IMU (LSM6DS3TR-C) wake-on-motion + idle keep-alive | ✅ |
 | Deep sleep to conserve the pack (two-stage idle; lights cleared before sleep) | ✅ |
 | WiFi config portal + web UI + OTA (brake+20 s gesture) | ✅ |
-| Pack-voltage sensing (ADC2, WiFi-gated) | ✅ |
-| Guided throttle/brake calibration (web UI) | ✅ |
-| OLED telemetry (SSD1309, LVGL) | ✅ |
+| Pack-voltage sensing (ADC2, WiFi-gated) + two-point calibration | ✅ |
+| Guided throttle/brake calibration (web UI / console) | ✅ |
+| OLED UI (SSD1309, LVGL): ride + charging screens, light/dark | ✅ |
+| Charging mode (dedicated screen + LED, deep sleep inhibited) | ✅ |
+| Adaptive range estimate (coulomb-counting, learned Ah/km) | ✅ |
+| Screen-off idle timeout | ✅ |
 
-**Feature-complete** against the plan. Remaining work is hardware validation
-(the open-drain single-wire UART and the IMU register sequence want a scope).
+**Running on real hardware.** The one-wire bus link and IMU wake-on-motion are
+confirmed on the board. Each unit just needs a one-time throttle/brake
+calibration for its own harness (`cal start`); see [BRINGUP.md](BRINGUP.md) for
+hardware notes and open items.
 
 ## Layout
 
@@ -42,10 +47,18 @@ firmware/
     ├── board.h        pin map + tunables (edit here)
     ├── protocol.[ch]  frame build/decode + XOR checksum (ports PROTOCOL.md)
     ├── bus.[ch]       open-drain UART, echo filter, poll loop, telemetry
-    ├── inputs.[ch]    throttle/brake ADC + mapping
+    ├── inputs.[ch]    throttle/brake/pack ADC + mapping + calibration
     ├── control.[ch]   ride state machine + safety interlocks
+    ├── gesture.[ch]   lever gestures (unlock blip / config hold)
+    ├── security.[ch]  lock state, auto-lock, motion alarm
+    ├── range.[ch]     adaptive range estimate (coulomb counting)
+    ├── imu.[ch]       LSM6DS3TR-C wake-on-motion
+    ├── power.[ch]     two-stage idle + deep sleep
+    ├── netcfg.[ch]    WiFi SoftAP config/OTA portal (web/index.html)
+    ├── display.[ch]   SSD1309 OLED UI (LVGL)
     ├── buzzer.[ch]    LEDC tones
     ├── status_led.[ch] WS2812 (led_strip)
+    ├── sercon.[ch]    USB-serial console commands
     └── app_main.c     init + real-time ride loop
 ```
 
@@ -89,7 +102,8 @@ idf.py build
 ```
 
 The first build compiles all of ESP-IDF (several minutes); later builds are
-incremental. Output: `build/turd_scooter_fw.bin` (~243 KB).
+incremental. Output: `build/turd_scooter_fw.bin` (~1.3 MB — LVGL, fonts and the
+WiFi stack dominate; it fits the OTA app slot with ~34 % free).
 
 One-liner for a fresh Windows shell:
 ```powershell
@@ -117,14 +131,17 @@ bus link.
 
 | Silk | GPIO | Function |
 |---|---|---|
-| D1 | 3 | brake (ADC1_CH3) |
-| D2 | 4 | throttle (ADC1_CH4) |
-| D6 | 21 | bus TX (open-drain) |
-| D7 | 20 | bus RX (tied to D6) |
+| D0 | 2 | IMU INT1 / deep-sleep wake |
+| D1 | 3 | brake input (ADC1_CH3) |
+| D2 | 4 | throttle input (ADC1_CH4) |
+| D3 | 5 | pack-voltage sense (ADC2_CH0, WiFi-gated) |
+| D4 | 6 | I²C SDA (OLED + IMU) |
+| D5 | 7 | I²C SCL (OLED + IMU) |
+| D6 | 21 | one-wire bus TX (open-drain) |
+| D7 | 20 | one-wire bus RX (tied to D6) |
 | D8 | 8 | WS2812 status LED |
-| D9 | 9 | buzzer |
-
-(D0 IMU-INT, D3 pack sense, D4/D5 I²C, D10 expansion are wired but used by later phases.)
+| D9 | 9 | buzzer (low-side MOSFET gate) |
+| D10 | 10 | expansion header (unused in firmware) |
 
 ## Status LED
 
@@ -191,8 +208,15 @@ terminal) and type at the `scooter>` prompt:
 | `help` | list commands |
 | `get` | print the full config as JSON |
 | `set <key> <value>` | change one setting + save to NVS (e.g. `set throttle_cap 220`, `set headlight_mode 1`, `set ap_ssid myscooter`) |
-| `status` | live telemetry: link / lock / speed / SoC / current / pack V |
-| `cal start` … `cal apply` | guided calibration (`cal show` to watch, `cal cancel` to abort) |
+| `status` | live telemetry: link / lock / speed / SoC / current / charge / pack V / temps / odometer, plus the range estimate |
+| `mon [secs]` | live throttle / brake / gesture stream for the given seconds |
+| `bus [reset]` | one-wire bus counters; `bus reset` clears them |
+| `range [reset]` | show the range estimate; `range reset` re-seeds the learned Ah/km |
+| `pack cal zero\|span <volts>\|clear` | two-point pack-voltage calibration against a meter |
+| `cal start` … `cal apply` | guided throttle/brake calibration (`cal show` to watch, `cal cancel` to abort) |
+| `led red\|green\|blue\|white\|off\|auto` | override the status LED for testing (`auto` returns it to the ride state) |
+| `beep [freq]` / `beep on\|off` | sound the buzzer (bench test) |
+| `gpio <num> <0\|1>` | raw-drive a pin (bench test) |
 | `wifi on` / `wifi off` | start/stop the config + OTA WiFi portal |
 | `defaults` | reset config to defaults |
 | `reboot` | restart |
