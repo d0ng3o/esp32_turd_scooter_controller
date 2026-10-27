@@ -4,6 +4,11 @@ A standalone replacement control board for a **decommissioned Bird One #590AE**
 shared e-scooter (the operator went bankrupt), built around a **Seeed XIAO
 ESP32-C3**.
 
+**Tested on:** a real **Bird One #590AE**, driving its stock **Nanjing Lishui
+LSW6G-RF-FOC** motor controller over the original one-wire bus. Other Bird One
+units (and other scooters on the same Lishui colon protocol) are likely
+compatible but unverified.
+
 > ⚠️ **Safety-critical, experimental, unofficial.** This board controls a
 > vehicle's motor, throttle, and braking behavior. It is provided **as-is, with
 > no warranty**, is not certified by anyone, and is not affiliated with or

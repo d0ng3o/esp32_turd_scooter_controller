@@ -33,7 +33,8 @@ interlocks. Built with **ESP-IDF v5.2+**.
 | Adaptive range estimate (coulomb-counting, learned Ah/km) | ✅ |
 | Screen-off idle timeout | ✅ |
 
-**Running on real hardware.** The one-wire bus link and IMU wake-on-motion are
+**Running on real hardware** — a Bird One #590AE with its stock Nanjing Lishui
+LSW6G-RF-FOC motor controller. The one-wire bus link and IMU wake-on-motion are
 confirmed on the board. Each unit just needs a one-time throttle/brake
 calibration for its own harness (`cal start`); see [BRINGUP.md](BRINGUP.md) for
 hardware notes and open items.
