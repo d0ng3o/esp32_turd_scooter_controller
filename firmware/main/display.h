@@ -14,3 +14,7 @@ esp_err_t display_init(void);
 // Update the readout (call a few times per second). `unit` is "km/h" or "mph".
 void display_update(const char *state, int speed, const char *unit,
                     int soc, double amps, double pack_v);
+
+// Turn the panel off (blank) ahead of deep sleep. The framebuffer is kept, so
+// the next display_update() after wake restores the readout.
+void display_off(void);

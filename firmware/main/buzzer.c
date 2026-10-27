@@ -9,6 +9,7 @@
 #include "config.h"
 
 #include "driver/ledc.h"
+#include "driver/gpio.h"
 #include "freertos/FreeRTOS.h"
 #include "freertos/task.h"
 #include "freertos/queue.h"
@@ -59,6 +60,10 @@ static void buzzer_task(void *arg)
 
 esp_err_t buzzer_init(void)
 {
+    // Release any pad hold latched before a deep-sleep wake (see
+    // buzzer_deep_sleep_prep) so LEDC can drive the gate again.
+    gpio_hold_dis(PIN_BUZZER);
+
     const ledc_timer_config_t tcfg = {
         .speed_mode      = LEDC_MODE,
         .timer_num       = LEDC_TIMER,
@@ -112,4 +117,18 @@ void buzzer_tone_on(uint16_t freq)
 void buzzer_tone_off(void)
 {
     tone_off();
+}
+
+void buzzer_deep_sleep_prep(void)
+{
+    // Leave the Q1 gate (GPIO9) undriven for deep sleep so the external 1M
+    // pulldown (R10) holds it low and Q1 stays OFF (silent, no current). Don't
+    // drive or hold it high: that turns Q1 on and feeds 5V-rail ripple to the
+    // buzzer. GPIO9 is the boot strapping pin, but R10 is weak enough that the
+    // ROM's internal pull-up still reads it high at the wake-reset (normal boot).
+    tone_off();
+    gpio_reset_pin(PIN_BUZZER);                 // detach LEDC from the pad
+    gpio_set_direction(PIN_BUZZER, GPIO_MODE_INPUT);
+    gpio_pullup_dis(PIN_BUZZER);
+    gpio_pulldown_dis(PIN_BUZZER);              // Hi-Z: let R10 hold the gate low
 }

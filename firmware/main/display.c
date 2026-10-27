@@ -25,6 +25,7 @@ static const char *TAG = "oled";
 #define V_RES     64
 
 static lv_display_t *s_disp;
+static esp_lcd_panel_handle_t s_panel;
 static lv_obj_t *s_speed, *s_unit, *s_soc, *s_state, *s_amp;
 
 esp_err_t display_init(void)
@@ -66,6 +67,7 @@ esp_err_t display_init(void)
     esp_lcd_panel_reset(panel);
     esp_lcd_panel_init(panel);
     esp_lcd_panel_disp_on_off(panel, true);
+    s_panel = panel;
 
     const lvgl_port_cfg_t pc = ESP_LVGL_PORT_INIT_CONFIG();
     lvgl_port_init(&pc);
@@ -118,6 +120,13 @@ esp_err_t display_init(void)
     }
     ESP_LOGI(TAG, "OLED up (128x64 SSD1309 via LVGL)");
     return ESP_OK;
+}
+
+void display_off(void)
+{
+    // Blank the panel before deep sleep (0xAE). The framebuffer is retained, so
+    // the readout reappears instantly on the next display_update() after wake.
+    if (s_panel) esp_lcd_panel_disp_on_off(s_panel, false);
 }
 
 void display_update(const char *state, int speed, const char *unit,

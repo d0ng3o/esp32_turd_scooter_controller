@@ -14,6 +14,9 @@
 #include "config.h"
 #include "bus.h"
 #include "imu.h"
+#include "display.h"
+#include "buzzer.h"
+#include "status_led.h"
 
 #include "esp_timer.h"
 #include "esp_sleep.h"
@@ -35,6 +38,10 @@ void power_init(void)
 static void enter_deep_sleep(void)
 {
     ESP_LOGW(TAG, "idle %u s -> deep sleep", g_cfg.auto_sleep_timeout_s);
+
+    display_off();              // blank the OLED
+    status_led_off();           // blank the WS2812 (it latches its last colour)
+    buzzer_deep_sleep_prep();   // leave the buzzer gate off (Q1 held low by R10)
 
     // The controller latches the last light state once we stop polling, so send
     // a few final polls with throttle 0 and all light flags cleared.

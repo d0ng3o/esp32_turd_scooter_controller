@@ -22,3 +22,7 @@ void buzzer_fault(void);   // triple warning beep
 // drive can be measured with a DMM. Bypasses the pattern queue.
 void buzzer_tone_on(uint16_t freq);
 void buzzer_tone_off(void);
+
+// Park the gate pad in a defined, silent, boot-safe state and hold it through
+// deep sleep (prevents the pad floating and whining). Call just before sleeping.
+void buzzer_deep_sleep_prep(void);

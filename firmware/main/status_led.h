@@ -25,3 +25,7 @@ void status_led_raw(uint8_t r, uint8_t g, uint8_t b);
 
 // Release the manual hold from status_led_raw(); the ride state drives again.
 void status_led_auto(void);
+
+// Blank the pixel (send an off frame). Used before deep sleep so the WS2812
+// doesn't hold its last colour while the board is asleep.
+void status_led_off(void);

@@ -69,6 +69,12 @@ void status_led_auto(void)
     s_last = -1;
 }
 
+void status_led_off(void)
+{
+    if (s_strip) led_strip_clear(s_strip);       // blank the pixel (e.g. before deep sleep)
+    s_last = -1;
+}
+
 void status_led_state(ride_state_t state)
 {
     if (s_override) return;              // a manual `led` test is holding the pixel
