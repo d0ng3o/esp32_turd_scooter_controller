@@ -62,6 +62,12 @@ static void ride_task(void *arg)
     int64_t link_down_us     = 0;
     int64_t link_up_us       = 0;
 
+    // Charging: stay awake but blank the OLED to spare it; motion wakes the
+    // screen for CHARGE_SCREEN_ON_MS to show the charging readout.
+    bool    chg_screen_on    = true;    // tracks the panel on/off state
+    int64_t chg_screen_until = 0;       // keep the screen on until this time
+    bool    was_charging     = false;   // detect the charging rising edge
+
     ESP_LOGI(TAG, "ride loop started");
     for (;;) {
         n++;
@@ -77,6 +83,10 @@ static void ride_task(void *arg)
         bool lever        = (in.throttle_cmd > 0) || in.brake_active;
         bool active       = lever || wheel_moving || imu_mot;
         bool stationary   = !wheel_moving;
+
+        // Charging: the controller reports charge current on charger standby.
+        bool charging = link && telem.valid && telem.charge_cA >= CHARGE_DETECT_cA;
+        bool full     = charging && telem.soc >= CHARGE_FULL_SOC;
 
         gesture_event_t g = gesture_update(&in, stationary);
         if (g == GESTURE_CONFIG) {
@@ -101,6 +111,8 @@ static void ride_task(void *arg)
 
         if (config_active) {
             status_led_rgb(0, 90, 90);          // cyan = config/OTA mode
+        } else if (charging) {
+            status_led_charging(full);          // breathing amber / solid green
         } else {
             status_led_state(out.state);
         }
@@ -130,20 +142,38 @@ static void ride_task(void *arg)
         }
         link_was_ok = link;
 
-        // Refresh the OLED a few times per second.
-        if ((n % 10) == 0) {
-            double kmh = telem.speed * 0.16;     // ~0.16 km/h per speed count
-            int   spd  = (g_cfg.units == UNITS_MPH) ? (int)(kmh * 0.6214 + 0.5)
-                                                    : (int)(kmh + 0.5);
-            display_update(state_str(out.state, config_active), spd,
-                           g_cfg.units == UNITS_MPH ? "mph" : "km/h",
-                           telem.soc, telem.current_cA / 100.0,
-                           inputs_pack_mv() / 1000.0);
+        // Display power: while charging, keep the OLED off to spare it and only
+        // wake it for CHARGE_SCREEN_ON_MS when charging starts or on motion.
+        // Otherwise it's always on (deep sleep blanks it separately).
+        bool chg_started = charging && !was_charging;
+        was_charging = charging;
+        if (charging && (imu_mot || chg_started))
+            chg_screen_until = now_us + (int64_t)CHARGE_SCREEN_ON_MS * 1000;
+        bool want_screen = charging ? (now_us < chg_screen_until) : true;
+        if (want_screen != chg_screen_on) {
+            if (want_screen) display_on(); else display_off();
+            chg_screen_on = want_screen;
+        }
+
+        // Refresh the OLED a few times per second (only when it's on).
+        if (chg_screen_on && (n % 10) == 0) {
+            if (charging) {
+                display_charging(telem.soc, telem.charge_cA / 100.0, full);
+            } else {
+                double kmh = telem.speed * 0.16;     // ~0.16 km/h per speed count
+                int   spd  = (g_cfg.units == UNITS_MPH) ? (int)(kmh * 0.6214 + 0.5)
+                                                        : (int)(kmh + 0.5);
+                display_update(state_str(out.state, config_active), spd,
+                               g_cfg.units == UNITS_MPH ? "mph" : "km/h",
+                               telem.soc, telem.current_cA / 100.0,
+                               inputs_pack_mv() / 1000.0);
+            }
         }
 
         // Stage-2 idle: deep sleep after the long idle timeout. Never sleep while
-        // the config portal is open. Does not return if it sleeps (IMU wakes it).
-        power_update(active || config_active);
+        // the config portal is open or the charger is connected. Does not return
+        // if it sleeps (IMU wakes it).
+        power_update(active || config_active || charging);
     }
 }
 

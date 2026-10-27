@@ -29,3 +29,7 @@ void status_led_auto(void);
 // Blank the pixel (send an off frame). Used before deep sleep so the WS2812
 // doesn't hold its last colour while the board is asleep.
 void status_led_off(void);
+
+// Charge indicator: breathing amber while charging, solid green when full. Call
+// every ride-loop cycle while charging (it animates on each call).
+void status_led_charging(bool full);

@@ -129,6 +129,29 @@ void display_off(void)
     if (s_panel) esp_lcd_panel_disp_on_off(s_panel, false);
 }
 
+void display_on(void)
+{
+    // Re-enable the panel (0xAF) after a display_off() without deep sleep (e.g.
+    // waking the charging screen on motion). The framebuffer is intact; the next
+    // display_update()/display_charging() refreshes the content.
+    if (s_panel) esp_lcd_panel_disp_on_off(s_panel, true);
+}
+
+void display_charging(int soc, double charge_a, bool full)
+{
+    if (!s_disp) return;
+    if (!lvgl_port_lock(10)) return;
+    char b[24];
+    // Decluttered charging screen: big SoC %, the charge current, and a clear
+    // CHARGING / FULL indicator. No ride telemetry.
+    snprintf(b, sizeof(b), "%d", soc);                 lv_label_set_text(s_speed, b);
+    lv_label_set_text(s_unit, "%");
+    lv_label_set_text(s_soc, "");                       // keep the top-right clear
+    snprintf(b, sizeof(b), "%.1f A", charge_a);         lv_label_set_text(s_amp, b);
+    lv_label_set_text(s_state, full ? "FULL" : "CHARGING");
+    lvgl_port_unlock();
+}
+
 void display_update(const char *state, int speed, const char *unit,
                     int soc, double amps, double pack_v)
 {

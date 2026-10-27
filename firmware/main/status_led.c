@@ -10,6 +10,7 @@
 
 #include "led_strip.h"
 #include "esp_log.h"
+#include "esp_timer.h"
 
 static const char *TAG = "led";
 
@@ -73,6 +74,24 @@ void status_led_off(void)
 {
     if (s_strip) led_strip_clear(s_strip);       // blank the pixel (e.g. before deep sleep)
     s_last = -1;
+}
+
+void status_led_charging(bool full)
+{
+    if (s_override) return;                       // a manual `led` test is holding the pixel
+    if (!s_strip) return;
+    s_last = -1;                                  // force a refresh when ride state resumes
+    if (full) {
+        set_rgb(0, 255, 0);                       // solid green = battery full
+        return;
+    }
+    // Breathing amber while charging: triangle ramp over ~2.4 s, with a dim floor
+    // so it never fully extinguishes. set_rgb() also scales by led_brightness.
+    uint32_t ph  = (uint32_t)((esp_timer_get_time() / 1000) % 2400);   // 0..2399 ms
+    int      tri = (ph < 1200) ? (int)(ph * 255 / 1200)
+                               : (int)((2400 - ph) * 255 / 1200);      // 0..255..0
+    if (tri < 25) tri = 25;                       // ~10 % floor
+    set_rgb((uint8_t)tri, (uint8_t)(tri * 120 / 255), 0);             // amber
 }
 
 void status_led_state(ride_state_t state)

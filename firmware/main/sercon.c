@@ -55,10 +55,12 @@ static int cmd_status(int argc, char **argv)
     (void)argc; (void)argv;
     telemetry_t t;
     bus_get_telemetry(&t);
-    printf("link=%d locked=%d speed=%u soc=%u%% current=%.2fA pack=%.1fV temp1=%u odo=%lu\n",
+    bool charging = bus_link_ok() && t.valid && t.charge_cA >= CHARGE_DETECT_cA;
+    printf("link=%d locked=%d speed=%u soc=%u%% current=%.2fA chg=%.2fA%s pack=%.1fV temp1=%u odo=%lu\n",
            bus_link_ok(), security_is_locked(), t.speed, t.soc,
-           t.current_cA / 100.0, inputs_pack_mv() / 1000.0, t.temp1,
-           (unsigned long)t.odometer);
+           t.current_cA / 100.0, t.charge_cA / 100.0,
+           charging ? (t.soc >= CHARGE_FULL_SOC ? " [FULL]" : " [CHARGING]") : "",
+           inputs_pack_mv() / 1000.0, t.temp1, (unsigned long)t.odometer);
     return 0;
 }
 

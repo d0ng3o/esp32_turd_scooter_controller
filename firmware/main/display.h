@@ -5,6 +5,7 @@
 
 #pragma once
 
+#include <stdbool.h>
 #include "esp_err.h"
 
 // Bring up the panel + LVGL. Non-fatal if the OLED is absent (returns an error
@@ -18,3 +19,10 @@ void display_update(const char *state, int speed, const char *unit,
 // Turn the panel off (blank) ahead of deep sleep. The framebuffer is kept, so
 // the next display_update() after wake restores the readout.
 void display_off(void);
+
+// Re-enable the panel after a display_off() without a reboot (charging-screen
+// wake on motion).
+void display_on(void);
+
+// Charging readout: big SoC %, charge current, and a CHARGING/FULL indicator.
+void display_charging(int soc, double charge_a, bool full);

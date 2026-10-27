@@ -40,6 +40,11 @@
 #define BUS_LINK_TIMEOUT_US  300000      // no status for 300 ms => link lost
 #define BUS_LINK_ALERT_REARM_US 1000000  // link must be up this long to re-arm the loss chirp
 
+// ---- Charging ---------------------------------------------------------------
+#define CHARGE_DETECT_cA     5           // charge_cA (0.01 A) above this => charger active (~0.05 A)
+#define CHARGE_FULL_SOC      100         // soc (%) at/above this while charging => battery full
+#define CHARGE_SCREEN_ON_MS  15000       // keep the OLED on this long after motion while charging
+
 // ---- Buzzer -----------------------------------------------------------------
 #define BUZZER_TONE_HZ    2700           // HYG-8503A is loudest near 2.7 kHz
 
