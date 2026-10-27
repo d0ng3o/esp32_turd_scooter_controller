@@ -11,12 +11,12 @@
 #include "driver/uart.h"
 
 // ---- Pin map (XIAO silk -> GPIO) --------------------------------------------
-#define PIN_IMU_INT       GPIO_NUM_2    // D0  IMU INT1 / deep-sleep wake (later)
+#define PIN_IMU_INT       GPIO_NUM_2    // D0  IMU INT1 / deep-sleep wake
 #define PIN_BRAKE_ADC     GPIO_NUM_3    // D1  brake input     (ADC1_CH3)
 #define PIN_THROTTLE_ADC  GPIO_NUM_4    // D2  throttle input  (ADC1_CH4)
-#define PIN_PACK_ADC      GPIO_NUM_5    // D3  pack sense      (ADC2_CH0, later)
-#define PIN_I2C_SDA       GPIO_NUM_6    // D4  OLED + IMU       (later)
-#define PIN_I2C_SCL       GPIO_NUM_7    // D5  OLED + IMU       (later)
+#define PIN_PACK_ADC      GPIO_NUM_5    // D3  pack sense      (ADC2_CH0, WiFi-gated)
+#define PIN_I2C_SDA       GPIO_NUM_6    // D4  OLED + IMU
+#define PIN_I2C_SCL       GPIO_NUM_7    // D5  OLED + IMU
 #define PIN_BUS_TX        GPIO_NUM_21   // D6  one-wire bus TX (open-drain)
 #define PIN_BUS_RX        GPIO_NUM_20   // D7  one-wire bus RX (tied to D6)
 #define PIN_WS2812        GPIO_NUM_8    // D8  status LED data

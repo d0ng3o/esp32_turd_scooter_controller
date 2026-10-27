@@ -36,6 +36,7 @@ The project has two halves:
 ├── install_logger.sh           one-shot Pi logger installer
 ├── pi-scooter-logger.service   systemd unit for the Pi logger
 │
+├── firmware/                   the ESP-IDF firmware for the XIAO — see firmware/README.md
 └── kicad/                      the hardware — see kicad/README.md
 ```
 
@@ -61,14 +62,15 @@ playbook. The board is DRC-clean; bare boards and parts have been ordered.
 - ✅ Bus protocol reverse-engineered and documented.
 - ✅ Host/Pi tooling to drive and log the bus.
 - ✅ Control board schematic + PCB complete, DRC-clean, ordered.
-- ⬜ ESP32-C3 firmware — not in this repo yet.
+- ✅ ESP32-C3 firmware (ESP-IDF) in **[firmware/](firmware/)** — ride control,
+  lights, lock/alarm, IMU wake, OLED UI, WiFi config/OTA; running on hardware.
 
 ## Note
 
-The Python here is **host-side** tooling (PC / Raspberry Pi) used to
+The Python at the repo root is **host-side** tooling (PC / Raspberry Pi) used to
 reverse-engineer and exercise the bus. It connects to the scooter via a USB
 serial adapter (`scooter_master.py`, bench scripts) or a Pi UART (`pi_sniff.py`).
-The firmware that will run on the XIAO itself is separate and not committed yet.
+The firmware that runs on the XIAO itself lives in **[firmware/](firmware/)**.
 
 ## License
 
