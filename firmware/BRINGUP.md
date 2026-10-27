@@ -70,6 +70,25 @@ Most checks use the USB serial console (`idf.py -p <PORT> monitor`, prompt
 ## 10. Pack voltage
 - [ ] `status` pack V matches a meter on the pack (within divider tolerance). Tune the
       divider constants in `board.h` if off.
+- [ ] Two-point cal: `pack cal zero` (ESC unplugged), then `pack cal span <volts>`
+      (measured with a DMM). `pack cal clear` reverts to the nominal divider.
+
+## Known hardware notes
+- **Faint rail whine is normal.** The 3V3 rail is from an LDO (no switching
+  converter / inductor), but a little ripple on the rail makes the ceramic
+  decoupling caps (and possibly the buzzer) "sing" very faintly. It's audible on
+  the bench, harmless, and not firmware-controllable. Deep sleep is silent.
+- **Buzzer gate is on GPIO9 (a boot strapping pin).** Series R9 (1k) + pulldown
+  R10 (1M) keep Q1 off whenever GPIO9 is undriven, and R10 is weak enough that the
+  ROM's internal pull-up still reads GPIO9 high at reset (normal boot). Firmware
+  must *not* hold GPIO9 high for sleep (that turns Q1 on and feeds 5V ripple to the
+  buzzer) — leave it Hi-Z and let R10 hold it low.
+- **WS2812 (D8/GPIO8) and IMU INT (D0/GPIO2) are also wake/strapping-sensitive.**
+  INT1 is open-drain active-low with a 100k pull-up (R14); the ESP wakes on its
+  HIGH→LOW edge. Clear the WS2812 before deep sleep or it latches its last colour.
+- **Deep-sleep wake is IMU-motion only** (INT1→D0). Throttle/brake do not wake it.
+  A firm shake wakes it; `imu_wake_sens` (lower = more sensitive) tunes the
+  threshold (default 32 ≈ 1 g of AC motion after the slope filter).
 
 ---
 
