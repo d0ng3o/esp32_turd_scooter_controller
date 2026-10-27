@@ -26,6 +26,7 @@
 #include "freertos/FreeRTOS.h"
 #include "freertos/task.h"
 #include "esp_log.h"
+#include "esp_timer.h"
 
 static const char *TAG = "app";
 
@@ -48,8 +49,18 @@ static void ride_task(void *arg)
     (void)arg;
     inputs_t     in;
     telemetry_t  telem;
-    ride_state_t last_state = RIDE_FAULT;
     uint32_t     n = 0;
+
+    // Bus-link alerting (debounced so a flapping link doesn't chirp/log every
+    // second). The throttle-inhibit failsafe is immediate in control_step(); this
+    // only governs the rider chirp and the log. Start "down" to match the real
+    // boot state (no status yet) so connecting the controller isn't a false
+    // "restored" and losing it at boot isn't a false chirp.
+    bool    link_was_ok      = false;
+    bool    link_down_logged = false;   // logged a loss not yet matched by a restore
+    bool    link_chirp_armed = true;    // may chirp on the next loss
+    int64_t link_down_us     = 0;
+    int64_t link_up_us       = 0;
 
     ESP_LOGI(TAG, "ride loop started");
     for (;;) {
@@ -94,12 +105,30 @@ static void ride_task(void *arg)
             status_led_state(out.state);
         }
 
-        // Chirp once on entering a fault (link lost).
-        if (out.state == RIDE_FAULT && last_state != RIDE_FAULT) {
-            buzzer_fault();
+        // Bus-link transitions: chirp/log once on loss, log the downtime on
+        // recovery, and don't re-arm the chirp until the link has been solidly
+        // up for BUS_LINK_ALERT_REARM_US (so flapping stays quiet).
+        int64_t now_us = esp_timer_get_time();
+        if (link && !link_was_ok) {                 // just came up
+            link_up_us = now_us;
+            if (link_down_logged) {
+                ESP_LOGI(TAG, "bus link restored after %lld ms",
+                         (long long)((now_us - link_down_us) / 1000));
+                link_down_logged = false;
+            }
+        } else if (!link && link_was_ok) {          // just went down
+            link_down_us = now_us;
+            link_down_logged = true;
             ESP_LOGW(TAG, "bus link lost -> throttle inhibited");
+            if (link_chirp_armed) {
+                buzzer_fault();
+                link_chirp_armed = false;
+            }
+        } else if (link && !link_chirp_armed &&
+                   (now_us - link_up_us) >= BUS_LINK_ALERT_REARM_US) {
+            link_chirp_armed = true;                 // solid again -> re-arm
         }
-        last_state = out.state;
+        link_was_ok = link;
 
         // Refresh the OLED a few times per second.
         if ((n % 10) == 0) {

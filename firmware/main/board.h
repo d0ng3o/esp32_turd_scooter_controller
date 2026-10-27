@@ -38,6 +38,7 @@
 #define POLL_PERIOD_MS    20             // 50 Hz heartbeat (PROTOCOL.md 3.1/5.2)
 #define STATUS_EVERY_N    5              // request status on every 5th poll
 #define BUS_LINK_TIMEOUT_US  300000      // no status for 300 ms => link lost
+#define BUS_LINK_ALERT_REARM_US 1000000  // link must be up this long to re-arm the loss chirp
 
 // ---- Buzzer -----------------------------------------------------------------
 #define BUZZER_TONE_HZ    2700           // HYG-8503A is loudest near 2.7 kHz
