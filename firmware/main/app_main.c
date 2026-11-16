@@ -49,8 +49,9 @@ static void ride_task(void *arg)
     int64_t link_down_us     = 0;
     int64_t link_up_us       = 0;
 
-    // Display power: blank the OLED to spare it. While charging, motion wakes it
-    // for CHARGE_SCREEN_ON_MS; otherwise it blanks after display_timeout_s idle.
+    // Display power: blank the OLED to spare it. While charging, motion or a
+    // lever press wakes it for CHARGE_SCREEN_ON_MS; otherwise it blanks after
+    // display_timeout_s idle.
     bool    screen_on        = true;    // tracks the panel on/off state
     int64_t chg_screen_until = 0;       // charging: keep the screen on until this
     int64_t idle_screen_until =         // riding/idle: keep the screen on until this
@@ -137,13 +138,14 @@ static void ride_task(void *arg)
         link_was_ok = link;
 
         // Display power. Config portal: always on. Charging: off except for
-        // CHARGE_SCREEN_ON_MS after charge-start or motion. Otherwise: on while
-        // active, blanking display_timeout_s after the last activity (0 = never).
+        // CHARGE_SCREEN_ON_MS after charge-start, motion, or a lever press.
+        // Otherwise: on while active, blanking display_timeout_s after the last
+        // activity (0 = never).
         bool chg_started = charging && !was_charging;
         was_charging = charging;
         if (chg_started) range_save();      // ride ended -> persist consumption
         if (active) idle_screen_until = now_us + (int64_t)g_cfg.display_timeout_s * 1000000;
-        if (charging && (imu_mot || chg_started))
+        if (charging && (imu_mot || lever || chg_started))
             chg_screen_until = now_us + (int64_t)CHARGE_SCREEN_ON_MS * 1000;
 
         bool want_screen;
