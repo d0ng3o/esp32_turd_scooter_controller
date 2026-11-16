@@ -28,6 +28,11 @@
    background:#ddd4c9;color:var(--muted)}
  .pill.on{background:var(--ok);color:#fff}.pill.off{background:var(--warn);color:#fff}
  .pill.lock{background:var(--amber);color:#fff}
+ .det{display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin-bottom:14px}
+ .det div{background:var(--card);border-radius:10px;padding:8px 10px;box-shadow:var(--shadow);
+   display:flex;flex-direction:column}
+ .det .k{font-size:10px;color:var(--muted);text-transform:uppercase;letter-spacing:.04em}
+ .det .v{font-size:16px;font-weight:700;margin-top:2px}
  .card{background:var(--card);border-radius:14px;box-shadow:var(--shadow);margin:12px 0;overflow:hidden}
  .card h2{margin:0;padding:12px 16px;font-size:14px;font-weight:700;color:var(--accent);
    border-bottom:1px solid var(--line);text-transform:uppercase;letter-spacing:.04em}
@@ -79,6 +84,14 @@
    <span class="pill" id="p_link">link --</span>
    <span class="pill" id="p_lock">lock --</span>
  </div>
+ <section class="det">
+   <div><span class="k">Throttle</span><span class="v" id="d_thr">--</span></div>
+   <div><span class="k">Brake</span><span class="v" id="d_brk">--</span></div>
+   <div><span class="k">Charge</span><span class="v" id="d_chg">--</span></div>
+   <div><span class="k">Range</span><span class="v" id="d_rng">--</span></div>
+   <div><span class="k">Ctrl temp</span><span class="v" id="d_t1">--</span></div>
+   <div><span class="k">Motor temp</span><span class="v" id="d_t2">--</span></div>
+ </section>
 
  <form id="cfg"></form>
 
@@ -97,6 +110,7 @@
  <section class="card">
    <h2>Firmware update (OTA)</h2>
    <div class="pad">
+     <div class="msg">Running: <span id="fw_ver">--</span> <span id="fw_built"></span></div>
      <input type="file" id="fw" accept=".bin">
      <div class="btnrow"><button type="button" onclick="ota()">Upload &amp; flash</button></div>
      <progress id="pg" value="0" max="100" hidden></progress>
@@ -129,6 +143,11 @@ const S=[
   ['led_brightness','LED brightness','n','0-255']]],
  ['WiFi',[['ap_ssid','AP SSID','s'],['ap_pass','AP password','s'],['config_timeout_s','Config timeout','n','s']]],
  ['System',[['units','Units',['km/h','mph']]]],
+ ['Temperature calibration',[
+  ['temp1_cal_raw_lo','Ctrl raw @ lo','n'],['temp1_cal_c_lo','Ctrl lo temp','n','°C'],
+  ['temp1_cal_raw_hi','Ctrl raw @ hi','n'],['temp1_cal_c_hi','Ctrl hi temp','n','°C'],
+  ['temp2_cal_raw_lo','Motor raw @ lo','n'],['temp2_cal_c_lo','Motor lo temp','n','°C'],
+  ['temp2_cal_raw_hi','Motor raw @ hi','n'],['temp2_cal_c_hi','Motor hi temp','n','°C']]],
 ];
 function el(t,c){const e=document.createElement(t);if(c)e.className=c;return e;}
 function build(){const f=document.getElementById('cfg');f.innerHTML='';
@@ -162,6 +181,14 @@ async function poll(){try{const s=await(await fetch('/api/status')).json();
   document.getElementById('t_pack').textContent=(s.pack_mv/1000).toFixed(1);
   pill('p_link',s.link?'link up':'no link',s.link?'on':'off');
   pill('p_lock',s.locked?'locked':'unlocked',s.locked?'lock':'on');
+  const d=(id,v)=>{const e=document.getElementById(id);if(e)e.textContent=v;};
+  d('d_thr',s.thr_pct+'%');
+  d('d_brk',s.brake?'ON':'off');
+  d('d_chg',(s.charge_cA/100).toFixed(2)+' A');
+  d('d_rng',s.range_km>=0?s.range_km.toFixed(1)+' km':'--');
+  d('d_t1',s.temp1_c!=null?s.temp1_c.toFixed(1)+'°C':'raw '+s.temp1);
+  d('d_t2',s.temp2_c!=null?s.temp2_c.toFixed(1)+'°C':'raw '+s.temp2);
+  if(s.fw_ver){d('fw_ver','v'+s.fw_ver);d('fw_built',s.fw_built?'· built '+s.fw_built:'');}
  }catch(e){}setTimeout(poll,2000);}
 let calTimer=null;
 async function calStart(){await fetch('/api/cal',{method:'POST',body:'{"action":"start"}'});

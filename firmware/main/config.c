@@ -71,6 +71,13 @@ void config_set_defaults(config_t *c)
 
     // display power
     c->display_timeout_s = 60;      // blank the OLED after 1 min idle (awake)
+
+    // temperature calibration: 0 everywhere = uncalibrated (show raw counts);
+    // memset above already cleared these, listed here for clarity.
+    c->temp1_cal_raw_lo = c->temp1_cal_raw_hi = 0;
+    c->temp1_cal_c_lo   = c->temp1_cal_c_hi   = 0;
+    c->temp2_cal_raw_lo = c->temp2_cal_raw_hi = 0;
+    c->temp2_cal_c_lo   = c->temp2_cal_c_hi   = 0;
 }
 
 void config_init(void)
@@ -160,6 +167,14 @@ char *config_to_json(void)
     cJSON_AddNumberToObject(r, "wheel_circ_mm", g_cfg.wheel_circ_mm);
     cJSON_AddNumberToObject(r, "pack_capacity_mah", g_cfg.pack_capacity_mah);
     cJSON_AddNumberToObject(r, "display_timeout_s", g_cfg.display_timeout_s);
+    cJSON_AddNumberToObject(r, "temp1_cal_raw_lo", g_cfg.temp1_cal_raw_lo);
+    cJSON_AddNumberToObject(r, "temp1_cal_c_lo",   g_cfg.temp1_cal_c_lo);
+    cJSON_AddNumberToObject(r, "temp1_cal_raw_hi", g_cfg.temp1_cal_raw_hi);
+    cJSON_AddNumberToObject(r, "temp1_cal_c_hi",   g_cfg.temp1_cal_c_hi);
+    cJSON_AddNumberToObject(r, "temp2_cal_raw_lo", g_cfg.temp2_cal_raw_lo);
+    cJSON_AddNumberToObject(r, "temp2_cal_c_lo",   g_cfg.temp2_cal_c_lo);
+    cJSON_AddNumberToObject(r, "temp2_cal_raw_hi", g_cfg.temp2_cal_raw_hi);
+    cJSON_AddNumberToObject(r, "temp2_cal_c_hi",   g_cfg.temp2_cal_c_hi);
     char *s = cJSON_PrintUnformatted(r);
     cJSON_Delete(r);
     return s;
@@ -218,10 +233,39 @@ bool config_from_json(const char *json, int len)
     GN("wheel_circ_mm", wheel_circ_mm, 100, 3000);
     GN("pack_capacity_mah", pack_capacity_mah, 0, 60000);
     GN("display_timeout_s", display_timeout_s, 0, 3600);
+    GN("temp1_cal_raw_lo", temp1_cal_raw_lo, 0, 65535);
+    GN("temp1_cal_c_lo",   temp1_cal_c_lo,  -40, 250);
+    GN("temp1_cal_raw_hi", temp1_cal_raw_hi, 0, 65535);
+    GN("temp1_cal_c_hi",   temp1_cal_c_hi,  -40, 250);
+    GN("temp2_cal_raw_lo", temp2_cal_raw_lo, 0, 65535);
+    GN("temp2_cal_c_lo",   temp2_cal_c_lo,  -40, 250);
+    GN("temp2_cal_raw_hi", temp2_cal_raw_hi, 0, 65535);
+    GN("temp2_cal_c_hi",   temp2_cal_c_hi,  -40, 250);
 
 #undef GN
 #undef GB
 #undef GS
     cJSON_Delete(r);
     return config_save() == ESP_OK;
+}
+
+bool config_temp_c(int sensor, int raw, int *deci_c)
+{
+    uint16_t rlo, rhi;
+    int16_t  clo, chi;
+    if (sensor == 1) {
+        rlo = g_cfg.temp1_cal_raw_lo; rhi = g_cfg.temp1_cal_raw_hi;
+        clo = g_cfg.temp1_cal_c_lo;   chi = g_cfg.temp1_cal_c_hi;
+    } else if (sensor == 2) {
+        rlo = g_cfg.temp2_cal_raw_lo; rhi = g_cfg.temp2_cal_raw_hi;
+        clo = g_cfg.temp2_cal_c_lo;   chi = g_cfg.temp2_cal_c_hi;
+    } else {
+        return false;
+    }
+    if (rlo == rhi) return false;                 // unset / not calibrated
+    // Linear fit in deci-degrees C; extrapolates outside the two points.
+    long span = (long)(chi - clo) * 10;           // deci-degC across the span
+    long deci = (long)clo * 10 + (long)(raw - (int)rlo) * span / ((int)rhi - (int)rlo);
+    if (deci_c) *deci_c = (int)deci;
+    return true;
 }

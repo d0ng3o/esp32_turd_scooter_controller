@@ -57,11 +57,17 @@ static int cmd_status(int argc, char **argv)
     telemetry_t t;
     bus_get_telemetry(&t);
     bool charging = bus_link_ok() && t.valid && t.charge_cA >= CHARGE_DETECT_cA;
-    printf("link=%d locked=%d speed=%u soc=%u%% current=%.2fA chg=%.2fA%s pack=%.1fV temp1=%u temp2=%u odo=%lu\n",
+    char t1[24], t2[24];
+    int  dc;
+    if (config_temp_c(1, t.temp1, &dc)) snprintf(t1, sizeof t1, "%u(%d.%dC)", t.temp1, dc/10, (dc<0?-dc:dc)%10);
+    else                                snprintf(t1, sizeof t1, "%u", t.temp1);
+    if (config_temp_c(2, t.temp2, &dc)) snprintf(t2, sizeof t2, "%u(%d.%dC)", t.temp2, dc/10, (dc<0?-dc:dc)%10);
+    else                                snprintf(t2, sizeof t2, "%u", t.temp2);
+    printf("link=%d locked=%d speed=%u soc=%u%% current=%.2fA chg=%.2fA%s pack=%.1fV temp1=%s temp2=%s odo=%lu\n",
            bus_link_ok(), security_is_locked(), t.speed, t.soc,
            t.current_cA / 100.0, t.charge_cA / 100.0,
            charging ? (t.soc >= CHARGE_FULL_SOC ? " [FULL]" : " [CHARGING]") : "",
-           inputs_pack_mv() / 1000.0, t.temp1, t.temp2, (unsigned long)t.odometer);
+           inputs_pack_mv() / 1000.0, t1, t2, (unsigned long)t.odometer);
     printf("range~%.1fkm (%.3f Ah/km, cap %.1f Ah)\n",
            range_km(t.soc), range_ah_per_km(), g_cfg.pack_capacity_mah / 1000.0);
     return 0;
@@ -231,6 +237,64 @@ static int cmd_pack(int argc, char **argv)
     return 0;
 }
 
+static int cmd_temp(int argc, char **argv)
+{
+    // Two-point temperature calibration. Put a thermometer on the controller
+    // (sensor 1 = temp1, FET) or motor (sensor 2 = temp2), and capture the raw
+    // count at two known temperatures (lo and hi). `temp` alone prints the live
+    // readings; `temp cal clear` wipes it back to raw counts.
+    telemetry_t t;
+    bus_get_telemetry(&t);
+
+    if (argc >= 2 && !strcmp(argv[1], "cal")) {
+        if (argc == 3 && !strcmp(argv[2], "clear")) {
+            g_cfg.temp1_cal_raw_lo = g_cfg.temp1_cal_raw_hi = 0;
+            g_cfg.temp1_cal_c_lo   = g_cfg.temp1_cal_c_hi   = 0;
+            g_cfg.temp2_cal_raw_lo = g_cfg.temp2_cal_raw_hi = 0;
+            g_cfg.temp2_cal_c_lo   = g_cfg.temp2_cal_c_hi   = 0;
+            config_save();
+            printf("temp cal cleared (both sensors show raw counts)\n");
+            return 0;
+        }
+        if (argc != 5) {
+            printf("usage: temp cal <1|2> <lo|hi> <celsius>   e.g. temp cal 1 hi 55\n"
+                   "       temp cal clear\n");
+            return 1;
+        }
+        int  sensor  = atoi(argv[2]);
+        bool hi      = !strcmp(argv[3], "hi");
+        bool lo      = !strcmp(argv[3], "lo");
+        int  celsius = atoi(argv[4]);
+        if ((sensor != 1 && sensor != 2) || (!hi && !lo)) {
+            printf("usage: temp cal <1|2> <lo|hi> <celsius>\n");
+            return 1;
+        }
+        if (!bus_link_ok() || !t.valid) {
+            printf("no live telemetry - need a bus link to capture the raw count\n");
+            return 1;
+        }
+        int raw = (sensor == 1) ? (int)t.temp1 : (int)t.temp2;
+        if (sensor == 1) {
+            if (hi) { g_cfg.temp1_cal_raw_hi = (uint16_t)raw; g_cfg.temp1_cal_c_hi = (int16_t)celsius; }
+            else    { g_cfg.temp1_cal_raw_lo = (uint16_t)raw; g_cfg.temp1_cal_c_lo = (int16_t)celsius; }
+        } else {
+            if (hi) { g_cfg.temp2_cal_raw_hi = (uint16_t)raw; g_cfg.temp2_cal_c_hi = (int16_t)celsius; }
+            else    { g_cfg.temp2_cal_raw_lo = (uint16_t)raw; g_cfg.temp2_cal_c_lo = (int16_t)celsius; }
+        }
+        config_save();
+        printf("temp%d %s point: raw %d = %d C (saved)\n", sensor, hi ? "hi" : "lo", raw, celsius);
+        return 0;
+    }
+
+    int d;
+    printf("temp1 raw=%u ", t.temp1);
+    if (config_temp_c(1, t.temp1, &d)) printf("= %d.%d C", d/10, (d<0?-d:d)%10); else printf("(uncalibrated)");
+    printf("  |  temp2 raw=%u ", t.temp2);
+    if (config_temp_c(2, t.temp2, &d)) printf("= %d.%d C", d/10, (d<0?-d:d)%10); else printf("(uncalibrated)");
+    printf("\ncalibrate: `temp cal <1|2> lo <C>` at a known temp, then `... hi <C>` at a hotter one\n");
+    return 0;
+}
+
 static int cmd_mon(int argc, char **argv)
 {
     // Live input/gesture stream to debug the unlock gesture: hold the brake and
@@ -350,6 +414,7 @@ void sercon_init(void)
         { .command = "gpio",     .help = "gpio <num> <0|1> - raw-drive a pin (bench test)", .func = cmd_gpio },
         { .command = "mon",      .help = "mon [secs] - live throttle/brake/gesture stream", .func = cmd_mon },
         { .command = "pack",     .help = "pack voltage cal: pack cal zero|span <volts>|clear", .func = cmd_pack },
+        { .command = "temp",     .help = "temps + cal: temp cal <1|2> <lo|hi> <C> | temp cal clear", .func = cmd_temp },
         { .command = "range",    .help = "range estimate; `range reset` to re-seed",      .func = cmd_range },
         { .command = "cal",      .help = "cal start|apply|cancel|show",           .func = cmd_cal },
         { .command = "wifi",     .help = "wifi on|off  (config/OTA portal)",      .func = cmd_wifi },

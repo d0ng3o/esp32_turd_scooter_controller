@@ -12,6 +12,7 @@
 #include "config.h"
 #include "bus.h"
 #include "inputs.h"
+#include "range.h"
 #include "security.h"
 #include "buzzer.h"
 
@@ -23,6 +24,7 @@
 #include "esp_event.h"
 #include "esp_http_server.h"
 #include "esp_ota_ops.h"
+#include "esp_app_desc.h"
 #include "esp_system.h"
 #include "esp_timer.h"
 #include "esp_log.h"
@@ -99,13 +101,37 @@ static esp_err_t h_status(httpd_req_t *req)
     touch();
     telemetry_t t;
     bus_get_telemetry(&t);
-    char buf[256];
+    inputs_t in;
+    inputs_last(&in);
+
+    // temp in degC if that sensor is calibrated, else JSON null
+    char t1c[16], t2c[16];
+    int  d;
+    if (config_temp_c(1, t.temp1, &d)) snprintf(t1c, sizeof t1c, "%d.%d", d/10, (d<0?-d:d)%10);
+    else                               snprintf(t1c, sizeof t1c, "null");
+    if (config_temp_c(2, t.temp2, &d)) snprintf(t2c, sizeof t2c, "%d.%d", d/10, (d<0?-d:d)%10);
+    else                               snprintf(t2c, sizeof t2c, "null");
+
+    bool  linked = bus_link_ok() && t.valid;
+    float range  = linked ? range_km(t.soc) : -1.0f;
+    int   thr_pct = (in.throttle_cmd * 100 + 127) / 255;
+
+    const esp_app_desc_t *app = esp_app_get_description();
+
+    char buf[560];
     snprintf(buf, sizeof(buf),
              "{\"link\":%d,\"locked\":%d,\"speed\":%u,\"soc\":%u,"
-             "\"current_cA\":%u,\"temp1\":%u,\"temp2\":%u,\"odo\":%lu,\"pack_mv\":%lu}",
+             "\"current_cA\":%u,\"charge_cA\":%u,\"temp1\":%u,\"temp2\":%u,"
+             "\"temp1_c\":%s,\"temp2_c\":%s,"
+             "\"thr_pct\":%d,\"thr_raw\":%d,\"brake\":%d,\"brk_raw\":%d,"
+             "\"range_km\":%.1f,\"odo\":%lu,\"pack_mv\":%lu,"
+             "\"fw_ver\":\"%s\",\"fw_built\":\"%s %s\"}",
              bus_link_ok() ? 1 : 0, security_is_locked() ? 1 : 0,
-             t.speed, t.soc, t.current_cA, t.temp1, t.temp2, (unsigned long)t.odometer,
-             (unsigned long)inputs_pack_mv());
+             t.speed, t.soc, t.current_cA, t.charge_cA, t.temp1, t.temp2,
+             t1c, t2c,
+             thr_pct, in.throttle_raw, in.brake_active ? 1 : 0, in.brake_raw,
+             range, (unsigned long)t.odometer, (unsigned long)inputs_pack_mv(),
+             app->version, app->date, app->time);
     httpd_resp_set_type(req, "application/json");
     httpd_resp_sendstr(req, buf);
     return ESP_OK;

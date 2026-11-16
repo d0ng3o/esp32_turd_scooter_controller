@@ -14,7 +14,7 @@
 #include "esp_err.h"
 
 #define CONFIG_MAGIC    0x54555244u   // 'TURD'
-#define CONFIG_VERSION  6
+#define CONFIG_VERSION  7
 // NOTE: only ever *append* fields to config_t (never reorder/resize existing
 // ones). config_init() migrates an older, shorter NVS blob by overlaying it on
 // the defaults, so appended fields get their defaults and the rest is preserved.
@@ -92,6 +92,13 @@ typedef struct {
 
     // --- display power ---
     uint16_t display_timeout_s;     // blank the OLED after this idle time (0 = never)
+
+    // --- temperature calibration (two-point raw ADC count -> degrees C, per
+    //     sensor; a sensor is "calibrated" once its lo/hi raw points differ) ---
+    uint16_t temp1_cal_raw_lo, temp1_cal_raw_hi;   // captured raw counts
+    int16_t  temp1_cal_c_lo,   temp1_cal_c_hi;     // the known temps (whole degC)
+    uint16_t temp2_cal_raw_lo, temp2_cal_raw_hi;
+    int16_t  temp2_cal_c_lo,   temp2_cal_c_hi;
 } config_t;
 
 extern config_t g_cfg;              // the live configuration
@@ -112,3 +119,9 @@ char *config_to_json(void);
 // Merge a (possibly partial) JSON object into g_cfg with range clamping and
 // save to NVS. Returns true on success.
 bool config_from_json(const char *json, int len);
+
+// Convert a raw temperature reading to deci-degrees C (degC x 10) using the
+// two-point calibration for `sensor` (1 or 2). Returns true and writes *deci_c
+// when that sensor is calibrated (two distinct raw points); false otherwise
+// (uncalibrated -> the caller shows the raw count instead).
+bool config_temp_c(int sensor, int raw, int *deci_c);
