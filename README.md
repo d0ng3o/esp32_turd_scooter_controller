@@ -9,6 +9,18 @@ LSW6G-RF-FOC** motor controller over the original one-wire bus. Other Bird One
 units (and other scooters on the same Lishui colon protocol) are likely
 compatible but unverified.
 
+### Tested hardware
+
+| | Details |
+|---|---|
+| **Scooter** | Bird One #590AE (decommissioned fleet unit) |
+| **Motor controller** | Nanjing Lishui — PCB marked `LSW6G-RF-FOC-E-190522` (board dated 2019-05-22); outer label `LSW1570 41F`; barcode `RF02P192150…`. **Fully potted** — the MCU and programming pads are inaccessible, so reflashing the controller with open-source firmware (e.g. EBiCS) is not practical on this unit. |
+| **Battery** | `HY-RDF-S1004UM-MH1` — 10S li-ion, **37 V** nominal / **42 V** charge, **12.8 Ah (473.6 Wh)**, charge **2 A** nominal / **4 A** max. |
+
+The pack's 2 A nominal charge current matches the `~2 A, max 2.55 A` charge
+current seen on the bus (PROTOCOL.md §4.2), and 42 V / 10S is consistent with the
+reported pack telemetry — useful cross-checks on the reverse-engineering.
+
 > ⚠️ **Safety-critical, experimental, unofficial.** This board controls a
 > vehicle's motor, throttle, and braking behavior. It is provided **as-is, with
 > no warranty**, is not certified by anyone, and is not affiliated with or

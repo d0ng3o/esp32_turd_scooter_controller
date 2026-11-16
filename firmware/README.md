@@ -34,7 +34,9 @@ interlocks. Built with **ESP-IDF v5.2+**.
 | Screen-off idle timeout | ✅ |
 
 **Running on real hardware** — a Bird One #590AE with its stock Nanjing Lishui
-LSW6G-RF-FOC motor controller. The one-wire bus link and IMU wake-on-motion are
+motor controller (PCB `LSW6G-RF-FOC-E-190522`, outer label `LSW1570 41F`) and a
+`HY-RDF-S1004UM-MH1` 10S pack (37 V nominal / 42 V charge, 12.8 Ah / 473.6 Wh,
+charge 2 A nominal / 4 A max). The one-wire bus link and IMU wake-on-motion are
 confirmed on the board. Each unit just needs a one-time throttle/brake
 calibration for its own harness (`cal start`); see [BRINGUP.md](BRINGUP.md) for
 hardware notes and open items.
