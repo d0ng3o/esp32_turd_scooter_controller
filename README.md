@@ -42,6 +42,7 @@ The project has two halves:
 ```
 .
 ├── PROTOCOL.md                 the reverse-engineered one-wire bus protocol
+├── BMS_PROTOCOL.md             the pack's BMS UART protocol (separate bus)
 ├── captures/                   raw bus captures backing PROTOCOL.md
 ├── esp32-scooter-schematic.html  interactive overview of the board
 │

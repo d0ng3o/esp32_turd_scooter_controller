@@ -411,7 +411,7 @@ and a wiring self-check). Raw and decoded captures are under `captures/` and
 |-----------------------------|-------------------------------------------------|
 | `temp1`/`temp2` scale       | Confirmed temperatures; raw→°C needs a thermometer |
 | `b20` margin scale          | Load-sensitive voltage margin; scale unmapped   |
-| Raw pack voltage            | NOT transmitted; only SoC is sent               |
+| Raw pack voltage            | NOT transmitted; only SoC is sent — available directly from the BMS, see [BMS_PROTOCOL.md](BMS_PROTOCOL.md) |
 | `flag13` (0x0E), `flag19` (0x10) | Constant; meaning unknown                  |
 | Speed-byte real-world unit  | ≈0.16 km/h/count (hypothesis, tenths of mph)    |
 | Boot one-shots 0x1F / 0x20  | No observed effect; likely unnecessary          |

@@ -62,16 +62,34 @@ Wire up the IDF rollback mechanism:
   auto-reverts to the previous working slot.
 Consider a short "confirming firmware…" state on the OLED before marking valid.
 
-## Temperature calibration (raw -> °C)
+## BMS telemetry tap (direct battery readout)
 
-The status frame carries two raw temperature fields (`temp1` = controller/FET,
-`temp2` = motor?) that we currently pass through unscaled. Work out the raw->°C
-mapping (likely an NTC curve or a linear fit) and expose the temperatures in
-real units on the OLED / console / web UI, with a small calibration step if the
-curve isn't known from the datasheet. See PROTOCOL.md (temp / `b20` fields).
+The pack's BMS speaks a documented UART protocol — see
+[BMS_PROTOCOL.md](../BMS_PROTOCOL.md) (9600 8N1, colon-framed `: 0x16 CMD LEN
+DATA SUM CRLF`, cumulative-sum checksum). It exposes data the motor-controller
+bus does **not** forward (PROTOCOL.md §8: only SoC is relayed): true pack
+voltage, all per-cell voltages, signed current (mA), remaining/full capacity
+(mAh), cycle count, and two temperatures.
+
+This is a **separate bus** from the control-board link (different wire, baud,
+and checksum), so it needs a hardware tap, but a small one:
+- Tap the pack↔controller data wire at the battery connector, run it to the
+  spare **`D10` / GPIO10** expansion pin, add a second **9600** open-drain UART.
+- **Sniff, don't poll** — the controller is already the BMS master; a second
+  master would collide. Decode its existing `0x02`/`0x03` polls read-only.
+- Note the protocol is **read-only** (no sleep/MOS-control command), so this
+  improves telemetry but does **not** help the idle self-discharge.
+
+Payoff: feed `range.c` real Ah + voltage instead of SoC-only, and add per-cell
+health monitoring. Confirm field endianness + the current sign on a capture
+first (flagged in BMS_PROTOCOL.md).
 
 ## Done / superseded
 
+- ~~Temperature calibration (raw -> °C)~~ — two-point per-sensor calibration
+  (config v7): the `temp` console command and web config fields map raw ADC
+  counts to °C; `config_temp_c()` does the linear fit. Readings show °C once
+  calibrated, raw otherwise.
 - ~~Adaptive range estimate~~ — `range.c` is charge-based (coulomb counting):
   integrate pack current over distance while riding -> learned Ah/km (EMA),
   range = SoC% x pack_capacity_mah / Ah_per_km. Seeded from range_full_km,
