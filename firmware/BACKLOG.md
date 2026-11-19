@@ -84,6 +84,16 @@ Payoff: feed `range.c` real Ah + voltage instead of SoC-only, and add per-cell
 health monitoring. Confirm field endianness + the current sign on a capture
 first (flagged in BMS_PROTOCOL.md).
 
+**No-hardware alternative to try first:** the controller answers ASCII string
+queries on frame type `0x1B` (the stock board only ever asked `SN`/`FW`, but the
+handler parses arbitrary tags — PROTOCOL.md §3.2). `bus_query_probe.py` (repo
+root) walks a wordlist of candidate tags (`BAT`, `VOL`, `CELL`, `SOC`, `TMP`, …)
+through `0x1B` over the existing bus and logs any reply. Low-risk (read-only, one
+documented opcode) and needs no wiring. If any tag returns battery/cell data,
+that's richer telemetry for free; if not, the bus is exhausted and the tap above
+is the only route. (The Bird controller ran custom ride-only firmware, so those
+query handlers may have been stripped — the probe settles it empirically.)
+
 ## Done / superseded
 
 - ~~Temperature calibration (raw -> °C)~~ — two-point per-sensor calibration

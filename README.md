@@ -49,6 +49,7 @@ The project has two halves:
 ├── scooter_master.py           drive the motor controller as the bus master
 ├── pi_sniff.py                 passive ride logger (Raspberry Pi, RX-only)
 ├── bus_experiment.py           scripted bring-up probes
+├── bus_query_probe.py          probe the controller's 0x1B ASCII query channel
 ├── bus_listen_poll.py          poll at 50 Hz and log non-echo bytes
 ├── bus_soak.py                 long idle soak to catch slow telemetry fields
 ├── install_logger.sh           one-shot Pi logger installer
